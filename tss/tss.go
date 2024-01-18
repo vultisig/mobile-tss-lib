@@ -1,7 +1,6 @@
 package tss
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -17,7 +16,9 @@ type Service interface {
 	KeysignECDSA(req *KeysignECDSARequest) (*KeysignECDSAResponse, error)
 	// KeysignEDDSA signs a message using EDDSA
 	KeysignEDDSA(req *KeysignEDDSARequest) (*KeysignEDDSAResponse, error)
+	// ApplyKeygenData applies the keygen data to the service
 	ApplyKeysignData(string) error
+	// ApplyKeysignData applies the keysign data to the service
 	ApplyKeygenData(string) error
 }
 
@@ -31,7 +32,6 @@ type KeysignEDDSARequest struct{}
 type KeysignEDDSAResponse struct{}
 
 type ServiceImpl struct {
-	testVariable string
 }
 
 // ApplyKeygenData implements Service.
@@ -47,17 +47,10 @@ func (s *ServiceImpl) ApplyKeysignData(string) error {
 // NewService returns a new instance of the TSS service
 func NewService() *ServiceImpl {
 	preParams, _ := ecdsaKeygen.GeneratePreParams(1 * time.Minute)
-
 	log.Printf("preParams: %v", preParams)
-
-	return &ServiceImpl{
-		testVariable: fmt.Sprintf("%+v", preParams),
-	}
+	return &ServiceImpl{}
 }
 
-func (s *ServiceImpl) TestVariable() string {
-	return s.testVariable
-}
 func (s *ServiceImpl) KeygenECDSA(req *KeygenECDSARequest) (*KeygenECDSAResponse, error) {
 	return nil, nil
 }
