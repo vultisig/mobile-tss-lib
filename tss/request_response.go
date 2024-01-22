@@ -7,11 +7,15 @@ type KeygenRequest struct {
 type KeygenECDSARequest struct {
 	KeygenRequest
 }
-type KeygenECDSAResponse struct{}
+type KeygenECDSAResponse struct {
+	PubKey string `json:"pub_key"`
+}
 type KeygenEDDSARequest struct {
 	KeygenRequest
 }
-type KeygenEDDSAResponse struct{}
+type KeygenEDDSAResponse struct {
+	PubKey string `json:"pub_key"`
+}
 type KeysignECDSARequest struct{}
 type KeysignECDSAResponse struct{}
 type KeysignEDDSARequest struct{}

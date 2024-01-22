@@ -28,11 +28,11 @@ func IsOnCurve(x, y *big.Int) bool {
 	return curve.IsOnCurve(x, y)
 }
 
-// GetHexEncodedECDSAPubKey returns the hexadecimal encoded string representation of an ECDSA public key.
+// GetHexEncodedPubKey returns the hexadecimal encoded string representation of an ECDSA/EDDSA public key.
 // It takes a pointer to an ECPoint as input and returns the encoded string and an error.
 // If the ECPoint is nil, it returns an empty string and an error indicating a nil ECPoint.
 // If the ECPoint is not on the curve, it returns an empty string and an error indicating an invalid ECPoint.
-func GetHexEncodedECDSAPubKey(pubKey *tcrypto.ECPoint) (string, error) {
+func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 	if pubKey == nil {
 		return "", errors.New("nil ECPoint")
 	}
