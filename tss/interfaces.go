@@ -2,17 +2,15 @@ package tss
 
 type Service interface {
 	// KeygenECDSA generates a new ECDSA keypair
-	KeygenECDSA(req *KeygenECDSARequest) (*KeygenECDSAResponse, error)
+	KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error)
 	// KeygenEDDSA generates a new EDDSA keypair
-	KeygenEDDSA(req *KeygenEDDSARequest) (*KeygenEDDSAResponse, error)
+	KeygenEDDSA(req *KeygenRequest) (*KeygenResponse, error)
 	// KeysignECDSA signs a message using ECDSA
-	KeysignECDSA(req *KeysignECDSARequest) (*KeysignECDSAResponse, error)
+	KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error)
 	// KeysignEDDSA signs a message using EDDSA
-	KeysignEDDSA(req *KeysignEDDSARequest) (*KeysignEDDSAResponse, error)
-	// ApplyKeygenData applies the keygen data to the service
-	ApplyKeysignData(string) error
-	// ApplyKeysignData applies the keysign data to the service
-	ApplyKeygenData(string) error
+	KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error)
+	// ApplyData applies the keygen data to the service
+	ApplyData(string) error
 }
 
 type Messenger interface {
@@ -20,6 +18,6 @@ type Messenger interface {
 }
 
 type LocalStateAccessor interface {
-	GetLocalState() (string, error)
-	SaveLocalState(localState string) error
+	GetLocalState(pubKey string) (string, error)
+	SaveLocalState(pubkey, localState string) error
 }

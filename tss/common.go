@@ -44,3 +44,26 @@ func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 	pubKeyBytes := elliptic.MarshalCompressed(ecdsaPubKey.Curve, ecdsaPubKey.X, ecdsaPubKey.Y)
 	return hex.EncodeToString(pubKeyBytes), nil
 }
+func Contains(s []string, searchterm string) bool {
+	for _, item := range s {
+		if item == searchterm {
+			return true
+		}
+	}
+	return false
+}
+
+func HashToInt(hash []byte, c elliptic.Curve) *big.Int {
+	orderBits := c.Params().N.BitLen()
+	orderBytes := (orderBits + 7) / 8
+	if len(hash) > orderBytes {
+		hash = hash[:orderBytes]
+	}
+
+	ret := new(big.Int).SetBytes(hash)
+	excess := len(hash)*8 - orderBits
+	if excess > 0 {
+		ret.Rsh(ret, uint(excess))
+	}
+	return ret
+}
