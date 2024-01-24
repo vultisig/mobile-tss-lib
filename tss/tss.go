@@ -136,7 +136,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 			}
 			jsonBytes, err := json.MarshalIndent(MessageFromTss{
 				WireBytes:   msgData,
-				From:        r.From.Id,
+				From:        r.From.Moniker,
 				IsBroadcast: r.IsBroadcast,
 			}, "", "  ")
 			if err != nil {
@@ -144,31 +144,36 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 			}
 			// for debug
 			log.Println("send message to peer", "message", string(jsonBytes))
+			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
 			if r.IsBroadcast {
 				for _, item := range localState.KeygenCommitteeKeys {
 					// don't send message to itself
 					if item == localState.LocalPartyKey {
 						continue
 					}
-					if err := s.messenger.SendToPeer(r.From.Id, item, string(jsonBytes)); err != nil {
+					if err := s.messenger.SendToPeer(r.From.Moniker, item, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to broadcast message to peer, error: %w", err)
 					}
 				}
 			} else {
 				for _, item := range r.To {
-					if err := s.messenger.SendToPeer(r.From.Id, item.Id, string(jsonBytes)); err != nil {
+					if err := s.messenger.SendToPeer(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
 					}
 				}
 			}
 		case msg := <-s.inboundMessageCh:
 			var msgFromTss MessageFromTss
-			if err := json.Unmarshal([]byte(msg), &msgFromTss); err != nil {
+			originalBytes, err := base64.StdEncoding.DecodeString(msg)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode message from base64, error: %w", err)
+			}
+			if err := json.Unmarshal(originalBytes, &msgFromTss); err != nil {
 				return "", fmt.Errorf("failed to unmarshal message from json, error: %w", err)
 			}
 			var fromParty *tss.PartyID
 			for _, item := range sortedPartyIds {
-				if item.Id == msgFromTss.From {
+				if item.Moniker == msgFromTss.From {
 					fromParty = item
 					break
 				}
@@ -176,9 +181,9 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 			if fromParty == nil {
 				return "", fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
 			}
-			ok, err := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
-			if err != nil {
-				return "", fmt.Errorf("failed to update from bytes, error: %w", err)
+			ok, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
+			if errUpdate != nil {
+				return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
 			}
 			if !ok {
 				return "", fmt.Errorf("failed to update from bytes, ok is false")
@@ -205,6 +210,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 			if err := s.saveLocalStateData(localState); err != nil {
 				return "", fmt.Errorf("failed to save local state data, error: %w", err)
 			}
+			return pubKey, nil
 		case <-time.After(2 * time.Minute):
 			return "", errors.New("keygen timeout, keygen didn't finish in 2 minutes")
 		}
@@ -340,7 +346,7 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 			}
 			jsonBytes, err := json.MarshalIndent(MessageFromTss{
 				WireBytes:   msgData,
-				From:        r.From.Id,
+				From:        r.From.Moniker,
 				IsBroadcast: r.IsBroadcast,
 			}, "", "  ")
 			if err != nil {
@@ -348,6 +354,7 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 			}
 			// for debug
 			log.Println("send message to peer", "message", string(jsonBytes))
+			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
 			if r.IsBroadcast {
 				for _, item := range sortedPartyIds {
 					// don't send message to itself
@@ -355,25 +362,29 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 					if item.Moniker == localParty.PartyID().Moniker {
 						continue
 					}
-					if err := s.messenger.SendToPeer(r.From.Id, item.Moniker, string(jsonBytes)); err != nil {
+					if err := s.messenger.SendToPeer(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return nil, fmt.Errorf("failed to broadcast message to peer, error: %w", err)
 					}
 				}
 			} else {
 				for _, item := range r.To {
-					if err := s.messenger.SendToPeer(r.From.Id, item.Id, string(jsonBytes)); err != nil {
+					if err := s.messenger.SendToPeer(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return nil, fmt.Errorf("failed to send message to peer, error: %w", err)
 					}
 				}
 			}
 		case msg := <-s.inboundMessageCh:
 			var msgFromTss MessageFromTss
-			if err := json.Unmarshal([]byte(msg), &msgFromTss); err != nil {
+			originalBytes, err := base64.StdEncoding.DecodeString(msg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode message from base64, error: %w", err)
+			}
+			if err := json.Unmarshal(originalBytes, &msgFromTss); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal message from json, error: %w", err)
 			}
 			var fromParty *tss.PartyID
 			for _, item := range sortedPartyIds {
-				if item.Id == msgFromTss.From {
+				if item.Moniker == msgFromTss.From {
 					fromParty = item
 					break
 				}
@@ -381,9 +392,9 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 			if fromParty == nil {
 				return nil, fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
 			}
-			ok, err := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
-			if err != nil {
-				return nil, fmt.Errorf("failed to update from bytes, error: %w", err)
+			ok, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
+			if errUpdate != nil {
+				return nil, fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
 			}
 			if !ok {
 				return nil, fmt.Errorf("failed to update from bytes, ok is false")
@@ -433,7 +444,7 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	ctx := tss.NewPeerContext(keysignPartyIDs)
-	params := tss.NewParameters(tss.S256(), ctx, localPartyID, len(keysignPartyIDs), threshold)
+	params := tss.NewParameters(curve, ctx, localPartyID, len(keysignPartyIDs), threshold)
 	m := HashToInt(bytesToSign, curve)
 	keysignParty := eddsaSigning.NewLocalParty(m, params, localState.EDDSALocalData, outCh, endCh)
 
