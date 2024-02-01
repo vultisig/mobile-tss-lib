@@ -14,7 +14,7 @@ type Service interface {
 }
 
 type Messenger interface {
-	SendToPeer(from, to, body string) error
+	Send(from, to, body string) error
 }
 
 type LocalStateAccessor interface {

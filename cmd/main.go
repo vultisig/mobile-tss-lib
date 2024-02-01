@@ -113,7 +113,7 @@ type MessengerImp struct {
 	SessionID string
 }
 
-func (m *MessengerImp) SendToPeer(from, to, body string) error {
+func (m *MessengerImp) Send(from, to, body string) error {
 	buf, err := json.MarshalIndent(struct {
 		SessionID string   `json:"session_id,omitempty"`
 		From      string   `json:"from,omitempty"`
