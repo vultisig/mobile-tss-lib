@@ -77,7 +77,7 @@ func (s *ServiceImpl) getParties(allPartyKeys []string, localPartyKey string) ([
 }
 
 func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
-	partyIDs, localPartyID, err := s.getParties(req.AllParties, req.LocalPartyID)
+	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get parties: %w", err)
 	}
@@ -93,7 +93,7 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	outCh := make(chan tss.Message, totalPartiesCount)                     // message channel
 	endCh := make(chan *ecdsaKeygen.LocalPartySaveData, totalPartiesCount) // result channel
 	localState := &LocalState{
-		KeygenCommitteeKeys: req.AllParties,
+		KeygenCommitteeKeys: req.GetAllParties(),
 		LocalPartyKey:       req.LocalPartyID,
 	}
 	errChan := make(chan struct{})
@@ -151,13 +151,13 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 					if item == localState.LocalPartyKey {
 						continue
 					}
-					if err := s.messenger.SendToPeer(r.From.Moniker, item, outboundPayload); err != nil {
+					if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to broadcast message to peer, error: %w", err)
 					}
 				}
 			} else {
 				for _, item := range r.To {
-					if err := s.messenger.SendToPeer(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
 					}
 				}
@@ -229,7 +229,7 @@ func (s *ServiceImpl) saveLocalStateData(localState *LocalState) error {
 }
 
 func (s *ServiceImpl) KeygenEDDSA(req *KeygenRequest) (*KeygenResponse, error) {
-	partyIDs, localPartyID, err := s.getParties(req.AllParties, req.LocalPartyID)
+	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get parties: %w", err)
 	}
@@ -245,7 +245,7 @@ func (s *ServiceImpl) KeygenEDDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	outCh := make(chan tss.Message, totalPartiesCount)                     // message channel
 	endCh := make(chan *eddsaKeygen.LocalPartySaveData, totalPartiesCount) // result channel
 	localState := &LocalState{
-		KeygenCommitteeKeys: req.AllParties,
+		KeygenCommitteeKeys: req.GetAllParties(),
 		LocalPartyKey:       req.LocalPartyID,
 	}
 	errChan := make(chan struct{})
@@ -288,7 +288,7 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	if localState.ECDSALocalData.ECDSAPub == nil {
 		return nil, errors.New("nil ecdsa pub key")
 	}
-	keysignCommittee := req.KeysignCommitteeKeys
+	keysignCommittee := req.GetKeysignCommitteeKeys()
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
 		keysignCommittee = append(keysignCommittee, localState.LocalPartyKey)
 	}
@@ -362,13 +362,13 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 					if item.Moniker == localParty.PartyID().Moniker {
 						continue
 					}
-					if err := s.messenger.SendToPeer(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return nil, fmt.Errorf("failed to broadcast message to peer, error: %w", err)
 					}
 				}
 			} else {
 				for _, item := range r.To {
-					if err := s.messenger.SendToPeer(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return nil, fmt.Errorf("failed to send message to peer, error: %w", err)
 					}
 				}
@@ -427,7 +427,7 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 	if localState.EDDSALocalData.EDDSAPub == nil {
 		return nil, errors.New("nil ecdsa pub key")
 	}
-	keysignCommittee := req.KeysignCommitteeKeys
+	keysignCommittee := req.GetKeysignCommitteeKeys()
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
 		keysignCommittee = append(keysignCommittee, localState.LocalPartyKey)
 	}
@@ -474,7 +474,7 @@ func (*ServiceImpl) validateKeysignRequest(req *KeysignRequest) error {
 	if req == nil {
 		return errors.New("nil request")
 	}
-	if req.KeysignCommitteeKeys == nil {
+	if req.KeysignCommitteeKeys == "" {
 		return errors.New("nil keysign committee keys")
 	}
 	if req.LocalPartyKey == "" {
