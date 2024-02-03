@@ -117,7 +117,34 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 		PubKey: pubKey,
 	}, nil
 }
-
+func (s *ServiceImpl) applyMessageToTssInstance(localParty tss.Party, msg string, sortedPartyIds tss.SortedPartyIDs) (string, error) {
+	var msgFromTss MessageFromTss
+	originalBytes, err := base64.StdEncoding.DecodeString(msg)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode message from base64, error: %w", err)
+	}
+	if err := json.Unmarshal(originalBytes, &msgFromTss); err != nil {
+		return "", fmt.Errorf("failed to unmarshal message from json, error: %w", err)
+	}
+	var fromParty *tss.PartyID
+	for _, item := range sortedPartyIds {
+		if item.Moniker == msgFromTss.From {
+			fromParty = item
+			break
+		}
+	}
+	if fromParty == nil {
+		return "", fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
+	}
+	ok, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
+	if errUpdate != nil {
+		return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
+	}
+	if !ok {
+		return "", fmt.Errorf("failed to update from bytes, ok is false")
+	}
+	return "", nil
+}
 func (s *ServiceImpl) processKeygen(localParty tss.Party,
 	errCh <-chan struct{},
 	outCh <-chan tss.Message,
@@ -125,6 +152,9 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 	eddsaEndCh <-chan *eddsaKeygen.LocalPartySaveData,
 	localState *LocalState,
 	sortedPartyIds tss.SortedPartyIDs) (string, error) {
+	canApplyInboundMessage := false
+	var tempMessages []string
+
 	for {
 		// wait for result
 		select {
@@ -144,8 +174,6 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 			if err != nil {
 				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
 			}
-			// for debug
-			log.Println("send message to peer", "message", string(jsonBytes))
 			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
 			if r.IsBroadcast {
 				for _, item := range localState.KeygenCommitteeKeys {
@@ -164,32 +192,25 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 					}
 				}
 			}
+			if !canApplyInboundMessage {
+				for _, msg := range tempMessages {
+					if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
+						return "", fmt.Errorf("failed to apply message to tss instance, error: %w", err)
+					}
+				}
+				canApplyInboundMessage = true
+			}
 		case msg := <-s.inboundMessageCh:
-			var msgFromTss MessageFromTss
-			originalBytes, err := base64.StdEncoding.DecodeString(msg)
-			if err != nil {
-				return "", fmt.Errorf("failed to decode message from base64, error: %w", err)
-			}
-			if err := json.Unmarshal(originalBytes, &msgFromTss); err != nil {
-				return "", fmt.Errorf("failed to unmarshal message from json, error: %w", err)
-			}
-			var fromParty *tss.PartyID
-			for _, item := range sortedPartyIds {
-				if item.Moniker == msgFromTss.From {
-					fromParty = item
-					break
+			if !canApplyInboundMessage {
+				tempMessages = append(tempMessages, msg)
+				continue
+			} else {
+				// apply the message to the tss instance
+				if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
+					return "", fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 				}
 			}
-			if fromParty == nil {
-				return "", fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
-			}
-			ok, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
-			if errUpdate != nil {
-				return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
-			}
-			if !ok {
-				return "", fmt.Errorf("failed to update from bytes, ok is false")
-			}
+
 		case saveData := <-ecdsaEndCh:
 			pubKey, err := GetHexEncodedPubKey(saveData.ECDSAPub)
 			if err != nil {
