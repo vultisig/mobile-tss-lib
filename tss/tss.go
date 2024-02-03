@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -45,7 +46,8 @@ func NewService(msg Messenger, stateAccessor LocalStateAccessor) (*ServiceImpl, 
 	if stateAccessor == nil {
 		return nil, errors.New("nil state accessor")
 	}
-	preParams, err := ecdsaKeygen.GeneratePreParams(1 * time.Minute)
+	runtime.GOMAXPROCS(4)
+	preParams, err := ecdsaKeygen.GeneratePreParams(10 * time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate pre-parameters: %w", err)
 	}
@@ -83,7 +85,7 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	}
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.S256()
-	totalPartiesCount := len(req.AllParties)
+	totalPartiesCount := len(req.GetAllParties())
 	threshod, err := GetThreshold(totalPartiesCount)
 
 	if err != nil {
@@ -235,7 +237,7 @@ func (s *ServiceImpl) KeygenEDDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	}
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.Edwards()
-	totalPartiesCount := len(req.AllParties)
+	totalPartiesCount := len(req.GetAllParties())
 	threshod, err := GetThreshold(totalPartiesCount)
 
 	if err != nil {
