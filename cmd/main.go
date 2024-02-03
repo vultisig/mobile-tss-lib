@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -189,7 +190,7 @@ func runCmd(c *cli.Context) error {
 	log.Println("start ECDSA keygen...")
 	resp, err := tssServerImp.KeygenECDSA(&tss.KeygenRequest{
 		LocalPartyID: key,
-		AllParties:   parties,
+		AllParties:   strings.Join(parties, ","),
 	})
 	if err != nil {
 		return fmt.Errorf("fail to generate ECDSA key: %w", err)
@@ -199,7 +200,7 @@ func runCmd(c *cli.Context) error {
 	log.Println("start EDDSA keygen...")
 	respEDDSA, errEDDSA := tssServerImp.KeygenEDDSA(&tss.KeygenRequest{
 		LocalPartyID: key,
-		AllParties:   parties,
+		AllParties:   strings.Join(parties, ","),
 	})
 	if errEDDSA != nil {
 		return fmt.Errorf("fail to generate EDDSA key: %w", errEDDSA)
@@ -323,7 +324,7 @@ func keysignCmd(c *cli.Context) error {
 		PubKey:               pubkey,
 		MessageToSign:        message,
 		LocalPartyKey:        key,
-		KeysignCommitteeKeys: parties,
+		KeysignCommitteeKeys: strings.Join(parties, ","),
 	})
 	if err != nil {
 		return fmt.Errorf("fail to ECDSA key sign: %w", err)
@@ -373,7 +374,7 @@ func keysignEDDSACmd(c *cli.Context) error {
 		PubKey:               pubkey,
 		MessageToSign:        message,
 		LocalPartyKey:        key,
-		KeysignCommitteeKeys: parties,
+		KeysignCommitteeKeys: strings.Join(parties, ","),
 	})
 	if err != nil {
 		return fmt.Errorf("fail to EDDSA key sign: %w", err)
