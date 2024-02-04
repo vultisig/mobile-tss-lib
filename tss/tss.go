@@ -92,7 +92,7 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
 	params := tss.NewParameters(curve, ctx, localPartyID, totalPartiesCount, threshod)
-	outCh := make(chan tss.Message, totalPartiesCount)                     // message channel
+	outCh := make(chan tss.Message, totalPartiesCount*2)                   // message channel
 	endCh := make(chan *ecdsaKeygen.LocalPartySaveData, totalPartiesCount) // result channel
 	localState := &LocalState{
 		KeygenCommitteeKeys: req.GetAllParties(),
@@ -136,13 +136,11 @@ func (s *ServiceImpl) applyMessageToTssInstance(localParty tss.Party, msg string
 	if fromParty == nil {
 		return "", fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
 	}
-	ok, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
+	_, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
 	if errUpdate != nil {
 		return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
 	}
-	if !ok {
-		return "", fmt.Errorf("failed to update from bytes, ok is false")
-	}
+
 	return "", nil
 }
 func (s *ServiceImpl) processKeygen(localParty tss.Party,
@@ -175,7 +173,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
 			}
 			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			if r.IsBroadcast {
+			if r.IsBroadcast || r.To == nil {
 				for _, item := range localState.KeygenCommitteeKeys {
 					// don't send message to itself
 					if item == localState.LocalPartyKey {
@@ -415,13 +413,11 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 			if fromParty == nil {
 				return nil, fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
 			}
-			ok, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
+			_, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
 			if errUpdate != nil {
 				return nil, fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
 			}
-			if !ok {
-				return nil, fmt.Errorf("failed to update from bytes, ok is false")
-			}
+
 		case sig := <-endCh: // finished keysign successfully
 			return sig, nil
 		case <-time.After(time.Minute):
