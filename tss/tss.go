@@ -263,7 +263,7 @@ func (s *ServiceImpl) KeygenEDDSA(req *KeygenRequest) (*KeygenResponse, error) {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
 	params := tss.NewParameters(curve, ctx, localPartyID, totalPartiesCount, threshod)
-	outCh := make(chan tss.Message, totalPartiesCount)                     // message channel
+	outCh := make(chan tss.Message, totalPartiesCount*2)                   // message channel
 	endCh := make(chan *eddsaKeygen.LocalPartySaveData, totalPartiesCount) // result channel
 	localState := &LocalState{
 		KeygenCommitteeKeys: req.GetAllParties(),
