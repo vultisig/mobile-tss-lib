@@ -25,12 +25,9 @@ func (r KeysignRequest) GetKeysignCommitteeKeys() []string {
 	return strings.Split(r.KeysignCommitteeKeys, ",")
 }
 
-type Signature struct {
+type KeysignResponse struct {
 	Msg        string `json:"msg"`
 	R          string `json:"r"`
 	S          string `json:"s"`
 	RecoveryID string `json:"recovery_id"` // mostly used in ETH
-}
-type KeysignResponse struct {
-	Signature Signature `json:"signature"`
 }
