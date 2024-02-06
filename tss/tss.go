@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -39,24 +38,27 @@ func (s *ServiceImpl) ApplyData(msg string) error {
 }
 
 // NewService returns a new instance of the TSS service
-func NewService(msg Messenger, stateAccessor LocalStateAccessor) (*ServiceImpl, error) {
+func NewService(msg Messenger, stateAccessor LocalStateAccessor, createPreParam bool) (*ServiceImpl, error) {
 	if msg == nil {
 		return nil, errors.New("nil messenger")
 	}
 	if stateAccessor == nil {
 		return nil, errors.New("nil state accessor")
 	}
-	runtime.GOMAXPROCS(4)
-	preParams, err := ecdsaKeygen.GeneratePreParams(10 * time.Minute)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate pre-parameters: %w", err)
-	}
-	return &ServiceImpl{
-		preParams:        preParams,
+	serviceImp := &ServiceImpl{
 		messenger:        msg,
 		stateAccessor:    stateAccessor,
 		inboundMessageCh: make(chan string),
-	}, nil
+	}
+
+	if createPreParam {
+		preParams, err := ecdsaKeygen.GeneratePreParams(10 * time.Minute)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate pre-parameters: %w", err)
+		}
+		serviceImp.preParams = preParams
+	}
+	return serviceImp, nil
 }
 
 func (s *ServiceImpl) getParties(allPartyKeys []string, localPartyKey string) ([]*tss.PartyID, *tss.PartyID, error) {
@@ -322,7 +324,7 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
 	curve := tss.S256()
-	outCh := make(chan tss.Message, len(keysignPartyIDs))
+	outCh := make(chan tss.Message, len(keysignPartyIDs)*2)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	ctx := tss.NewPeerContext(keysignPartyIDs)
@@ -343,12 +345,10 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 		return nil, err
 	}
 	return &KeysignResponse{
-		Signature: Signature{
-			Msg:        req.MessageToSign,
-			R:          base64.RawStdEncoding.EncodeToString(sig.R),
-			S:          base64.RawStdEncoding.EncodeToString(sig.S),
-			RecoveryID: base64.RawStdEncoding.EncodeToString(sig.SignatureRecovery),
-		},
+		Msg:        req.MessageToSign,
+		R:          base64.RawStdEncoding.EncodeToString(sig.R),
+		S:          base64.RawStdEncoding.EncodeToString(sig.S),
+		RecoveryID: base64.RawStdEncoding.EncodeToString(sig.SignatureRecovery),
 	}, nil
 }
 func (s *ServiceImpl) processKeySign(localParty tss.Party,
@@ -459,7 +459,7 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
 	curve := tss.Edwards()
-	outCh := make(chan tss.Message, len(keysignPartyIDs))
+	outCh := make(chan tss.Message, len(keysignPartyIDs)*2)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	ctx := tss.NewPeerContext(keysignPartyIDs)
@@ -480,12 +480,10 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 		return nil, err
 	}
 	return &KeysignResponse{
-		Signature: Signature{
-			Msg:        req.MessageToSign,
-			R:          base64.RawStdEncoding.EncodeToString(sig.R),
-			S:          base64.RawStdEncoding.EncodeToString(sig.S),
-			RecoveryID: base64.RawStdEncoding.EncodeToString(sig.SignatureRecovery),
-		},
+		Msg:        req.MessageToSign,
+		R:          base64.RawStdEncoding.EncodeToString(sig.R),
+		S:          base64.RawStdEncoding.EncodeToString(sig.S),
+		RecoveryID: base64.RawStdEncoding.EncodeToString(sig.SignatureRecovery),
 	}, nil
 }
 

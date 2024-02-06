@@ -361,7 +361,7 @@ func keysignEDDSACmd(c *cli.Context) error {
 	localStateAccessor := &LocalStateAccessorImp{
 		key: key,
 	}
-	tssServerImp, err := tss.NewService(messenger, localStateAccessor)
+	tssServerImp, err := tss.NewService(messenger, localStateAccessor, true)
 	if err != nil {
 		return fmt.Errorf("fail to create tss server: %w", err)
 	}
