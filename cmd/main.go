@@ -179,7 +179,7 @@ func runCmd(c *cli.Context) error {
 	localStateAccessor := &LocalStateAccessorImp{
 		key: key,
 	}
-	tssServerImp, err := tss.NewService(messenger, localStateAccessor)
+	tssServerImp, err := tss.NewService(messenger, localStateAccessor, true)
 	if err != nil {
 		return fmt.Errorf("fail to create tss server: %w", err)
 	}
@@ -196,7 +196,7 @@ func runCmd(c *cli.Context) error {
 		return fmt.Errorf("fail to generate ECDSA key: %w", err)
 	}
 	log.Printf("ECDSA keygen response: %+v\n", resp)
-
+	time.Sleep(time.Second)
 	log.Println("start EDDSA keygen...")
 	respEDDSA, errEDDSA := tssServerImp.KeygenEDDSA(&tss.KeygenRequest{
 		LocalPartyID: key,
@@ -206,6 +206,7 @@ func runCmd(c *cli.Context) error {
 		return fmt.Errorf("fail to generate EDDSA key: %w", errEDDSA)
 	}
 	log.Printf("EDDSA keygen response: %+v\n", respEDDSA)
+	time.Sleep(time.Second)
 	if err := endSession(server, session, key); err != nil {
 		log.Printf("fail to end session: %s\n", err)
 	}
@@ -311,7 +312,7 @@ func keysignCmd(c *cli.Context) error {
 	localStateAccessor := &LocalStateAccessorImp{
 		key: key,
 	}
-	tssServerImp, err := tss.NewService(messenger, localStateAccessor)
+	tssServerImp, err := tss.NewService(messenger, localStateAccessor, false)
 	if err != nil {
 		return fmt.Errorf("fail to create tss server: %w", err)
 	}
@@ -361,7 +362,7 @@ func keysignEDDSACmd(c *cli.Context) error {
 	localStateAccessor := &LocalStateAccessorImp{
 		key: key,
 	}
-	tssServerImp, err := tss.NewService(messenger, localStateAccessor, true)
+	tssServerImp, err := tss.NewService(messenger, localStateAccessor, false)
 	if err != nil {
 		return fmt.Errorf("fail to create tss server: %w", err)
 	}
