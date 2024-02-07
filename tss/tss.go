@@ -313,7 +313,7 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	}
 	keysignCommittee := req.GetKeysignCommitteeKeys()
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
-		keysignCommittee = append(keysignCommittee, localState.LocalPartyKey)
+		return nil, errors.New("local party not in keysign committee")
 	}
 	keysignPartyIDs, localPartyID, err := s.getParties(keysignCommittee, localState.LocalPartyKey)
 	if err != nil {
@@ -356,6 +356,8 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 	outCh <-chan tss.Message,
 	endCh <-chan *common.SignatureData,
 	sortedPartyIds tss.SortedPartyIDs) (*common.SignatureData, error) {
+	canApplyInboundMessage := false
+	var tempMessages []string
 	for {
 		select {
 		case <-errCh:
@@ -394,28 +396,23 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 					}
 				}
 			}
-		case msg := <-s.inboundMessageCh:
-			var msgFromTss MessageFromTss
-			originalBytes, err := base64.StdEncoding.DecodeString(msg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode message from base64, error: %w", err)
-			}
-			if err := json.Unmarshal(originalBytes, &msgFromTss); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal message from json, error: %w", err)
-			}
-			var fromParty *tss.PartyID
-			for _, item := range sortedPartyIds {
-				if item.Moniker == msgFromTss.From {
-					fromParty = item
-					break
+			if !canApplyInboundMessage {
+				for _, msg := range tempMessages {
+					if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
+						return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
+					}
 				}
+				canApplyInboundMessage = true
 			}
-			if fromParty == nil {
-				return nil, fmt.Errorf("failed to find from party,from:%s", msgFromTss.From)
-			}
-			_, errUpdate := localParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
-			if errUpdate != nil {
-				return nil, fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
+		case msg := <-s.inboundMessageCh:
+			if !canApplyInboundMessage {
+				tempMessages = append(tempMessages, msg)
+				continue
+			} else {
+				// apply the message to the tss instance
+				if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
+					return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
+				}
 			}
 
 		case sig := <-endCh: // finished keysign successfully
@@ -448,7 +445,7 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 	}
 	keysignCommittee := req.GetKeysignCommitteeKeys()
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
-		keysignCommittee = append(keysignCommittee, localState.LocalPartyKey)
+		return nil, errors.New("local party not in keysign committee")
 	}
 	keysignPartyIDs, localPartyID, err := s.getParties(keysignCommittee, localState.LocalPartyKey)
 	if err != nil {
@@ -459,7 +456,7 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
 	curve := tss.Edwards()
-	outCh := make(chan tss.Message, len(keysignPartyIDs)*2)
+	outCh := make(chan tss.Message, len(keysignPartyIDs)*3)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	ctx := tss.NewPeerContext(keysignPartyIDs)
