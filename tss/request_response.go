@@ -5,6 +5,7 @@ import "strings"
 type KeygenRequest struct {
 	LocalPartyID string
 	AllParties   string
+	ChainCodeHex string // hex encoded chain code
 }
 
 func (r KeygenRequest) GetAllParties() []string {
@@ -19,6 +20,7 @@ type KeysignRequest struct {
 	MessageToSign        string `json:"message_to_sign"` // base64 encoded message that need to be signed
 	KeysignCommitteeKeys string `json:"keysign_committee_keys"`
 	LocalPartyKey        string `json:"local_party_key"`
+	DerivePath           string `json:"derive_path"`
 }
 
 func (r KeysignRequest) GetKeysignCommitteeKeys() []string {

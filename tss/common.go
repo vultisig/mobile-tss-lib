@@ -1,13 +1,21 @@
 package tss
 
 import (
+	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
+	"strconv"
+	"strings"
 
 	tcrypto "github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/crypto/ckd"
+	"github.com/bnb-chain/tss-lib/v2/tss"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/chaincfg"
 )
 
 // GetThreshold calculates the threshold value based on the input value.
@@ -33,8 +41,7 @@ func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 	if !pubKey.IsOnCurve() {
 		return "", errors.New("invalid ECPoint")
 	}
-	ecdsaPubKey := pubKey.ToECDSAPubKey()
-	pubKeyBytes := elliptic.MarshalCompressed(ecdsaPubKey.Curve, ecdsaPubKey.X, ecdsaPubKey.Y)
+	pubKeyBytes := elliptic.MarshalCompressed(pubKey.Curve(), pubKey.X(), pubKey.Y())
 	return hex.EncodeToString(pubKeyBytes), nil
 }
 
@@ -66,4 +73,90 @@ func HashToInt(hash []byte, c elliptic.Curve) *big.Int {
 		ret.Rsh(ret, uint(excess))
 	}
 	return ret
+}
+
+func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (string, error) {
+	if len(hexPubKey) == 0 {
+		return "", errors.New("empty pub key")
+	}
+	if len(hexChainCode) == 0 {
+		return "", errors.New("empty chain code")
+	}
+	if len(path) == 0 {
+		return "", errors.New("empty path")
+	}
+	pubKeyBuf, err := hex.DecodeString(hexPubKey)
+	if err != nil {
+		return "", fmt.Errorf("decode hex pub key failed: %w", err)
+	}
+	chainCodeBuf, err := hex.DecodeString(hexChainCode)
+	if err != nil {
+		return "", fmt.Errorf("decode hex chain code failed: %w", err)
+	}
+	curve := tss.S256()
+	if isEdDSA {
+		curve = tss.Edwards()
+	}
+	// elliptic.UnmarshalCompressed doesn't work , probably because of curve
+	// thus here we use btcec.ParsePubKey to unmarshal the compressed public key
+	pubKey, err := btcec.ParsePubKey(pubKeyBuf)
+	if err != nil {
+		return "", fmt.Errorf("parse pub key failed: %w", err)
+	}
+
+	ecPoint, err := tcrypto.NewECPoint(curve, pubKey.X(), pubKey.Y())
+	if err != nil {
+		return "", fmt.Errorf("new ec point failed: %w", err)
+	}
+	if len(chainCodeBuf) != 32 {
+		return "", errors.New("invalid chain code length")
+	}
+	pathBuf, err := getDerivePathBytes(path)
+	if err != nil {
+		return "", fmt.Errorf("get derive path bytes failed: %w", err)
+	}
+	_, extendedKey, err := derivingPubkeyFromPath(ecPoint, chainCodeBuf, pathBuf, curve)
+	if err != nil {
+		return "", fmt.Errorf("deriving pubkey from path failed: %w", err)
+	}
+	return hex.EncodeToString(elliptic.MarshalCompressed(curve, extendedKey.X, extendedKey.Y)), nil
+}
+
+func derivingPubkeyFromPath(masterPub *tcrypto.ECPoint, chainCode []byte, path []uint32, ec elliptic.Curve) (*big.Int, *ckd.ExtendedKey, error) {
+	// build ecdsa key pair
+	pk := ecdsa.PublicKey{
+		Curve: ec,
+		X:     masterPub.X(),
+		Y:     masterPub.Y(),
+	}
+
+	net := &chaincfg.MainNetParams
+	extendedParentPk := &ckd.ExtendedKey{
+		PublicKey:  pk,
+		Depth:      0,
+		ChildIndex: 0,
+		ChainCode:  chainCode[:],
+		ParentFP:   []byte{0x00, 0x00, 0x00, 0x00},
+		Version:    net.HDPrivateKeyID[:],
+	}
+
+	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
+}
+func getDerivePathBytes(derivePath string) ([]uint32, error) {
+	var pathBuf []uint32
+	for _, item := range strings.Split(derivePath, "/") {
+		if len(item) == 0 {
+			continue
+		}
+		if item == "m" {
+			continue
+		}
+		result := strings.Trim(item, "'")
+		intResult, err := strconv.Atoi(result)
+		if err != nil {
+			return nil, fmt.Errorf("invalid path: %w", err)
+		}
+		pathBuf = append(pathBuf, uint32(intResult))
+	}
+	return pathBuf, nil
 }
