@@ -2,6 +2,7 @@ package tss
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,6 +82,17 @@ func (s *ServiceImpl) getParties(allPartyKeys []string, localPartyKey string) ([
 }
 
 func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
+	// ensure chaincode is set appropriately for ECDSA keygen
+	if req.ChainCodeHex == "" {
+		return nil, fmt.Errorf("ChainCodeHex is empty")
+	}
+	chaincode, err := hex.DecodeString(req.ChainCodeHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode chain code hex, error: %w", err)
+	}
+	if len(chaincode) != 32 {
+		return nil, fmt.Errorf("invalid chain code length")
+	}
 	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get parties: %w", err)
@@ -99,6 +111,7 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	localState := &LocalState{
 		KeygenCommitteeKeys: req.GetAllParties(),
 		LocalPartyKey:       req.LocalPartyID,
+		ChainCodeHex:        req.ChainCodeHex, // ChainCode will be used later for ECDSA key derivation
 	}
 	errChan := make(chan struct{})
 	localPartyECDSA := ecdsaKeygen.NewLocalParty(params, outCh, endCh, *s.preParams)
@@ -251,7 +264,7 @@ func (s *ServiceImpl) saveLocalStateData(localState *LocalState) error {
 	return nil
 }
 
-func (s *ServiceImpl) KeygenEDDSA(req *KeygenRequest) (*KeygenResponse, error) {
+func (s *ServiceImpl) KeygenEdDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get parties: %w", err)
@@ -311,6 +324,13 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	if localState.ECDSALocalData.ECDSAPub == nil {
 		return nil, errors.New("nil ecdsa pub key")
 	}
+	if localState.ChainCodeHex == "" {
+		return nil, errors.New("nil chain code")
+	}
+	chainCodeBuf, err := hex.DecodeString(localState.ChainCodeHex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode chain code hex, error: %w", err)
+	}
 	keysignCommittee := req.GetKeysignCommitteeKeys()
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
 		return nil, errors.New("local party not in keysign committee")
@@ -327,10 +347,22 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	outCh := make(chan tss.Message, len(keysignPartyIDs)*2)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
+	pathBuf, err := getDerivePathBytes(req.DerivePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get derive path bytes, error: %w", err)
+	}
+	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, tss.S256())
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive key from path, error: %w", err)
+	}
+	keyDerivationDelta := il
+	if err := signing.UpdatePublicKeyAndAdjustBigXj(keyDerivationDelta, []ecdsaKeygen.LocalPartySaveData{localState.ECDSALocalData}, &derivedKey.PublicKey, curve); err != nil {
+		return nil, fmt.Errorf("failed to update public key and adjust big xj, error: %w", err)
+	}
 	ctx := tss.NewPeerContext(keysignPartyIDs)
 	params := tss.NewParameters(tss.S256(), ctx, localPartyID, len(keysignPartyIDs), threshold)
 	m := HashToInt(bytesToSign, curve)
-	keysignParty := signing.NewLocalParty(m, params, localState.ECDSALocalData, outCh, endCh)
+	keysignParty := signing.NewLocalPartyWithKDD(m, params, localState.ECDSALocalData, keyDerivationDelta, outCh, endCh)
 
 	go func() {
 		tErr := keysignParty.Start()
@@ -423,7 +455,7 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 	}
 
 }
-func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error) {
+func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error) {
 	if err := s.validateKeysignRequest(req); err != nil {
 		return nil, err
 	}
@@ -455,6 +487,7 @@ func (s *ServiceImpl) KeysignEDDSA(req *KeysignRequest) (*KeysignResponse, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
+	// derivepath is not applicable for EdDSA
 	curve := tss.Edwards()
 	outCh := make(chan tss.Message, len(keysignPartyIDs)*3)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
