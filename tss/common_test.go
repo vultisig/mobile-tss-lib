@@ -61,3 +61,82 @@ func TestContains(t *testing.T) {
 		t.Errorf("Test case 3 failed. Expected: %v, got: %v", expected3, result3)
 	}
 }
+
+func TestGetDerivedPubKey(t *testing.T) {
+	// Test case 1: valid inputs
+	hexPubKey1 := "0247059f0de83d397b769a61ba271166cefb7676d5e4087dee2e74a6d13dbe901a"
+	hexChainCode1 := "8fadb2291a5985819919e418f150e3c5338c6f2a18fb41d64b8eb334ea1c4519"
+	path1 := "m/84'/0'/0'/0/0"
+	expected1 := "028acdd3137a6f54ce82caeb68c32b9c0baa640665e6f51201c3d4646907deb47d"
+	result1, err1 := GetDerivedPubKey(hexPubKey1, hexChainCode1, path1, false)
+	if err1 != nil {
+		t.Errorf("Test case 1 failed. Unexpected error: %v", err1)
+	}
+	if result1 != expected1 {
+		t.Errorf("Test case 1 failed. Expected: %v, got: %v", expected1, result1)
+	}
+
+	// Test case 2: empty pub key
+	hexPubKey2 := ""
+	hexChainCode2 := "0123456789abcdef0123456789abcdef"
+	path2 := "m/0/1/2"
+	_, err2 := GetDerivedPubKey(hexPubKey2, hexChainCode2, path2, false)
+	if err2 == nil {
+		t.Errorf("Test case 2 failed. Expected error, but got nil")
+	}
+
+	// Test case 3: empty chain code
+	hexPubKey3 := "0123456789abcdef"
+	hexChainCode3 := ""
+	path3 := "m/0/1/2"
+	_, err3 := GetDerivedPubKey(hexPubKey3, hexChainCode3, path3, false)
+	if err3 == nil {
+		t.Errorf("Test case 3 failed. Expected error, but got nil")
+	}
+
+	// Test case 4: empty path
+	hexPubKey4 := "0123456789abcdef"
+	hexChainCode4 := "0123456789abcdef0123456789abcdef"
+	path4 := ""
+	_, err4 := GetDerivedPubKey(hexPubKey4, hexChainCode4, path4, false)
+	if err4 == nil {
+		t.Errorf("Test case 4 failed. Expected error, but got nil")
+	}
+
+	// Test case 5: invalid hex pub key
+	hexPubKey5 := "invalid"
+	hexChainCode5 := "0123456789abcdef0123456789abcdef"
+	path5 := "m/0/1/2"
+	_, err5 := GetDerivedPubKey(hexPubKey5, hexChainCode5, path5, false)
+	if err5 == nil {
+		t.Errorf("Test case 5 failed. Expected error, but got nil")
+	}
+
+	// Test case 6: invalid hex chain code
+	hexPubKey6 := "0123456789abcdef"
+	hexChainCode6 := "invalid"
+	path6 := "m/0/1/2"
+	_, err6 := GetDerivedPubKey(hexPubKey6, hexChainCode6, path6, false)
+	if err6 == nil {
+		t.Errorf("Test case 6 failed. Expected error, but got nil")
+	}
+
+	// Test case 7: invalid path
+	hexPubKey7 := "0123456789abcdef"
+	hexChainCode7 := "0123456789abcdef0123456789abcdef"
+	path7 := "m/0/1/invalid"
+	_, err7 := GetDerivedPubKey(hexPubKey7, hexChainCode7, path7, false)
+	if err7 == nil {
+		t.Errorf("Test case 7 failed. Expected error, but got nil")
+	}
+
+	// Test case 8: invalid chain code length
+	hexPubKey8 := "0123456789abcdef"
+	hexChainCode8 := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0"
+	path8 := "m/0/1/2"
+	_, err8 := GetDerivedPubKey(hexPubKey8, hexChainCode8, path8, false)
+	if err8 == nil {
+		t.Errorf("Test case 8 failed. Expected error, but got nil")
+	}
+
+}

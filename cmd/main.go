@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/johnnyluo/mobile-tss-lib/tss"
 	"github.com/urfave/cli/v2"
+
+	"github.com/johnnyluo/mobile-tss-lib/tss"
 )
 
 func main() {
@@ -198,7 +199,7 @@ func runCmd(c *cli.Context) error {
 	log.Printf("ECDSA keygen response: %+v\n", resp)
 	time.Sleep(time.Second)
 	log.Println("start EDDSA keygen...")
-	respEDDSA, errEDDSA := tssServerImp.KeygenEDDSA(&tss.KeygenRequest{
+	respEDDSA, errEDDSA := tssServerImp.KeygenEdDSA(&tss.KeygenRequest{
 		LocalPartyID: key,
 		AllParties:   strings.Join(parties, ","),
 	})
@@ -371,7 +372,7 @@ func keysignEDDSACmd(c *cli.Context) error {
 	wg.Add(1)
 	go downloadMessage(server, session, key, tssServerImp, endCh, wg)
 	log.Println("start EDDSA keysign...")
-	resp, err := tssServerImp.KeysignEDDSA(&tss.KeysignRequest{
+	resp, err := tssServerImp.KeysignEdDSA(&tss.KeysignRequest{
 		PubKey:               pubkey,
 		MessageToSign:        message,
 		LocalPartyKey:        key,
