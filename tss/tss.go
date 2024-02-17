@@ -351,18 +351,19 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get derive path bytes, error: %w", err)
 	}
-	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, tss.S256())
+	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, curve)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive key from path, error: %w", err)
 	}
 	keyDerivationDelta := il
-	if err := signing.UpdatePublicKeyAndAdjustBigXj(keyDerivationDelta, []ecdsaKeygen.LocalPartySaveData{localState.ECDSALocalData}, &derivedKey.PublicKey, curve); err != nil {
+	localKey := []ecdsaKeygen.LocalPartySaveData{localState.ECDSALocalData}
+	if err := signing.UpdatePublicKeyAndAdjustBigXj(keyDerivationDelta, localKey, &derivedKey.PublicKey, curve); err != nil {
 		return nil, fmt.Errorf("failed to update public key and adjust big xj, error: %w", err)
 	}
 	ctx := tss.NewPeerContext(keysignPartyIDs)
-	params := tss.NewParameters(tss.S256(), ctx, localPartyID, len(keysignPartyIDs), threshold)
+	params := tss.NewParameters(curve, ctx, localPartyID, len(keysignPartyIDs), threshold)
 	m := HashToInt(bytesToSign, curve)
-	keysignParty := signing.NewLocalPartyWithKDD(m, params, localState.ECDSALocalData, keyDerivationDelta, outCh, endCh)
+	keysignParty := signing.NewLocalPartyWithKDD(m, params, localKey[0], keyDerivationDelta, outCh, endCh, 0)
 
 	go func() {
 		tErr := keysignParty.Start()
