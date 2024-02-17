@@ -1,6 +1,7 @@
 package tss
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	eddsaKeygen "github.com/bnb-chain/tss-lib/v2/eddsa/keygen"
 	eddsaSigning "github.com/bnb-chain/tss-lib/v2/eddsa/signing"
 	"github.com/bnb-chain/tss-lib/v2/tss"
+	"github.com/decred/dcrd/dcrec/edwards/v2"
 )
 
 type ServiceImpl struct {
@@ -347,22 +349,23 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	outCh := make(chan tss.Message, len(keysignPartyIDs)*2)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
-	pathBuf, err := getDerivePathBytes(req.DerivePath)
+	pathBuf, err := GetDerivePathBytes(req.DerivePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get derive path bytes, error: %w", err)
 	}
-	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, tss.S256())
+	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, curve)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive key from path, error: %w", err)
 	}
 	keyDerivationDelta := il
-	if err := signing.UpdatePublicKeyAndAdjustBigXj(keyDerivationDelta, []ecdsaKeygen.LocalPartySaveData{localState.ECDSALocalData}, &derivedKey.PublicKey, curve); err != nil {
+	localKey := []ecdsaKeygen.LocalPartySaveData{localState.ECDSALocalData}
+	if err := signing.UpdatePublicKeyAndAdjustBigXj(keyDerivationDelta, localKey, &derivedKey.PublicKey, curve); err != nil {
 		return nil, fmt.Errorf("failed to update public key and adjust big xj, error: %w", err)
 	}
 	ctx := tss.NewPeerContext(keysignPartyIDs)
-	params := tss.NewParameters(tss.S256(), ctx, localPartyID, len(keysignPartyIDs), threshold)
+	params := tss.NewParameters(curve, ctx, localPartyID, len(keysignPartyIDs), threshold)
 	m := HashToInt(bytesToSign, curve)
-	keysignParty := signing.NewLocalPartyWithKDD(m, params, localState.ECDSALocalData, keyDerivationDelta, outCh, endCh)
+	keysignParty := signing.NewLocalPartyWithKDD(m, params, localKey[0], keyDerivationDelta, outCh, endCh, 0)
 
 	go func() {
 		tErr := keysignParty.Start()
@@ -375,6 +378,13 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	if err != nil {
 		log.Println("failed to process keysign", "error", err)
 		return nil, err
+	}
+
+	// let's verify the signature
+	if ecdsa.Verify(localKey[0].ECDSAPub.ToECDSAPubKey(), bytesToSign, new(big.Int).SetBytes(sig.R), new(big.Int).SetBytes(sig.S)) {
+		log.Println("signature is valid")
+	} else {
+		return nil, fmt.Errorf("invalid signature")
 	}
 	return &KeysignResponse{
 		Msg:        req.MessageToSign,
@@ -508,6 +518,20 @@ func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error
 	if err != nil {
 		log.Println("failed to process keysign", "error", err)
 		return nil, err
+	}
+	pubKey := edwards.PublicKey{
+		Curve: curve,
+		X:     localState.EDDSALocalData.EDDSAPub.X(),
+		Y:     localState.EDDSALocalData.EDDSAPub.Y(),
+	}
+	if edwards.Verify(&pubKey,
+		bytesToSign,
+		new(big.Int).SetBytes(sig.R),
+		new(big.Int).SetBytes(sig.S)) {
+		log.Println("signature is valid")
+	} else {
+		return nil, fmt.Errorf("invalid signature")
+
 	}
 	return &KeysignResponse{
 		Msg:        req.MessageToSign,
