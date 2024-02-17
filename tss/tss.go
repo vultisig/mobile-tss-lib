@@ -1,6 +1,7 @@
 package tss
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	eddsaKeygen "github.com/bnb-chain/tss-lib/v2/eddsa/keygen"
 	eddsaSigning "github.com/bnb-chain/tss-lib/v2/eddsa/signing"
 	"github.com/bnb-chain/tss-lib/v2/tss"
+	"github.com/decred/dcrd/dcrec/edwards/v2"
 )
 
 type ServiceImpl struct {
@@ -377,6 +379,13 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 		log.Println("failed to process keysign", "error", err)
 		return nil, err
 	}
+
+	// let's verify the signature
+	if ecdsa.Verify(localKey[0].ECDSAPub.ToECDSAPubKey(), bytesToSign, new(big.Int).SetBytes(sig.R), new(big.Int).SetBytes(sig.S)) {
+		log.Println("signature is valid")
+	} else {
+		return nil, fmt.Errorf("invalid signature")
+	}
 	return &KeysignResponse{
 		Msg:        req.MessageToSign,
 		R:          base64.RawStdEncoding.EncodeToString(sig.R),
@@ -509,6 +518,20 @@ func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error
 	if err != nil {
 		log.Println("failed to process keysign", "error", err)
 		return nil, err
+	}
+	pubKey := edwards.PublicKey{
+		Curve: curve,
+		X:     localState.EDDSALocalData.EDDSAPub.X(),
+		Y:     localState.EDDSALocalData.EDDSAPub.Y(),
+	}
+	if edwards.Verify(&pubKey,
+		bytesToSign,
+		new(big.Int).SetBytes(sig.R),
+		new(big.Int).SetBytes(sig.S)) {
+		log.Println("signature is valid")
+	} else {
+		return nil, fmt.Errorf("invalid signature")
+
 	}
 	return &KeysignResponse{
 		Msg:        req.MessageToSign,
