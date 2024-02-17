@@ -97,7 +97,7 @@ func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (strin
 	if isEdDSA {
 		curve = tss.Edwards()
 	}
-	// elliptic.UnmarshalCompressed doesn't work , probably because of curve
+	// elliptic.UnmarshalCompressed doesn't work, probably because of a curve
 	// thus here we use btcec.ParsePubKey to unmarshal the compressed public key
 	pubKey, err := btcec.ParsePubKey(pubKeyBuf)
 	if err != nil {
@@ -111,7 +111,7 @@ func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (strin
 	if len(chainCodeBuf) != 32 {
 		return "", errors.New("invalid chain code length")
 	}
-	pathBuf, err := getDerivePathBytes(path)
+	pathBuf, err := GetDerivePathBytes(path)
 	if err != nil {
 		return "", fmt.Errorf("get derive path bytes failed: %w", err)
 	}
@@ -142,7 +142,7 @@ func derivingPubkeyFromPath(masterPub *tcrypto.ECPoint, chainCode []byte, path [
 
 	return ckd.DeriveChildKeyFromHierarchy(path, extendedParentPk, ec.Params().N, ec)
 }
-func getDerivePathBytes(derivePath string) ([]uint32, error) {
+func GetDerivePathBytes(derivePath string) ([]uint32, error) {
 	var pathBuf []uint32
 	for _, item := range strings.Split(derivePath, "/") {
 		if len(item) == 0 {
