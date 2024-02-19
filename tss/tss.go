@@ -20,6 +20,7 @@ import (
 	eddsaSigning "github.com/bnb-chain/tss-lib/v2/eddsa/signing"
 	"github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/decred/dcrd/dcrec/edwards/v2"
+	blog "github.com/ipfs/go-log/v2"
 )
 
 type ServiceImpl struct {
@@ -45,6 +46,7 @@ func NewService(msg Messenger, stateAccessor LocalStateAccessor, createPreParam 
 	if msg == nil {
 		return nil, errors.New("nil messenger")
 	}
+	blog.SetAllLoggers(blog.LevelInfo)
 	if stateAccessor == nil {
 		return nil, errors.New("nil state accessor")
 	}
@@ -167,8 +169,6 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 	eddsaEndCh <-chan *eddsaKeygen.LocalPartySaveData,
 	localState *LocalState,
 	sortedPartyIds tss.SortedPartyIDs) (string, error) {
-	canApplyInboundMessage := false
-	var tempMessages []string
 
 	for {
 		// wait for result
@@ -207,23 +207,10 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 					}
 				}
 			}
-			if !canApplyInboundMessage {
-				for _, msg := range tempMessages {
-					if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
-						return "", fmt.Errorf("failed to apply message to tss instance, error: %w", err)
-					}
-				}
-				canApplyInboundMessage = true
-			}
 		case msg := <-s.inboundMessageCh:
-			if !canApplyInboundMessage {
-				tempMessages = append(tempMessages, msg)
-				continue
-			} else {
-				// apply the message to the tss instance
-				if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
-					return "", fmt.Errorf("failed to apply message to tss instance, error: %w", err)
-				}
+			// apply the message to the tss instance
+			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
+				return "", fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 			}
 
 		case saveData := <-ecdsaEndCh:
@@ -398,8 +385,6 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 	outCh <-chan tss.Message,
 	endCh <-chan *common.SignatureData,
 	sortedPartyIds tss.SortedPartyIDs) (*common.SignatureData, error) {
-	canApplyInboundMessage := false
-	var tempMessages []string
 	for {
 		select {
 		case <-errCh:
@@ -438,25 +423,11 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 					}
 				}
 			}
-			if !canApplyInboundMessage {
-				for _, msg := range tempMessages {
-					if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
-						return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
-					}
-				}
-				canApplyInboundMessage = true
-			}
 		case msg := <-s.inboundMessageCh:
-			if !canApplyInboundMessage {
-				tempMessages = append(tempMessages, msg)
-				continue
-			} else {
-				// apply the message to the tss instance
-				if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
-					return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
-				}
+			// apply the message to the tss instance
+			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
+				return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 			}
-
 		case sig := <-endCh: // finished keysign successfully
 			return sig, nil
 		case <-time.After(time.Minute):
