@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
 	binanceTss "github.com/bnb-chain/tss-lib/v2/tss"
@@ -78,6 +79,12 @@ func getLocalStateFromFile(file string) (tss.LocalState, error) {
 	if err != nil {
 		return localState, err
 	}
+	if strings.HasSuffix(file, ".hex") {
+		fileContent, err = hex.DecodeString(string(fileContent))
+		if err != nil {
+			return localState, err
+		}
+	}
 	err = json.Unmarshal(fileContent, &localState)
 	if err != nil {
 		return localState, err
@@ -99,11 +106,7 @@ func recoverAction(context *cli.Context) error {
 		}
 		allSecret[i] = tssSecret
 	}
-	committeeSize := len(allSecret[0].KeygenCommitteeKeys)
-	threshold, err := tss.GetThreshold(committeeSize)
-	if err != nil {
-		return err
-	}
+	threshold := len(allSecret)
 	vssShares := make(vss.Shares, len(allSecret))
 	for i, s := range allSecret {
 		if isECDSA {
