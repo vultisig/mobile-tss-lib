@@ -3,6 +3,7 @@ package tss
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"encoding/asn1"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -159,4 +160,15 @@ func GetDerivePathBytes(derivePath string) ([]uint32, error) {
 		pathBuf = append(pathBuf, uint32(intResult))
 	}
 	return pathBuf, nil
+}
+
+type ecdsaSignature struct {
+	R, S *big.Int
+}
+
+func GetDERSignature(r, s *big.Int) ([]byte, error) {
+	return asn1.Marshal(ecdsaSignature{
+		R: r,
+		S: s,
+	})
 }
