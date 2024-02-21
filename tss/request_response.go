@@ -28,8 +28,9 @@ func (r KeysignRequest) GetKeysignCommitteeKeys() []string {
 }
 
 type KeysignResponse struct {
-	Msg        string `json:"msg"`
-	R          string `json:"r"`
-	S          string `json:"s"`
-	RecoveryID string `json:"recovery_id"` // mostly used in ETH
+	Msg          string `json:"msg"`
+	R            string `json:"r"`
+	S            string `json:"s"`
+	DerSignature string `json:"der_signature"`
+	RecoveryID   string `json:"recovery_id"` // mostly used in ETH
 }
