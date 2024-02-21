@@ -373,11 +373,16 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	} else {
 		return nil, fmt.Errorf("invalid signature")
 	}
+	derSig, err := GetDERSignature(new(big.Int).SetBytes(sig.R), new(big.Int).SetBytes(sig.S))
+	if err != nil {
+		log.Println("fail to get DER signature", "error", err)
+	}
 	return &KeysignResponse{
-		Msg:        req.MessageToSign,
-		R:          base64.RawStdEncoding.EncodeToString(sig.R),
-		S:          base64.RawStdEncoding.EncodeToString(sig.S),
-		RecoveryID: base64.RawStdEncoding.EncodeToString(sig.SignatureRecovery),
+		Msg:          req.MessageToSign,
+		R:            hex.EncodeToString(sig.R),
+		S:            hex.EncodeToString(sig.S),
+		DerSignature: hex.EncodeToString(derSig),
+		RecoveryID:   hex.EncodeToString(sig.SignatureRecovery),
 	}, nil
 }
 func (s *ServiceImpl) processKeySign(localParty tss.Party,
@@ -504,11 +509,16 @@ func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error
 		return nil, fmt.Errorf("invalid signature")
 
 	}
+	derSig, err := GetDERSignature(new(big.Int).SetBytes(sig.R), new(big.Int).SetBytes(sig.S))
+	if err != nil {
+		log.Println("fail to get DER signature", "error", err)
+	}
 	return &KeysignResponse{
-		Msg:        req.MessageToSign,
-		R:          base64.RawStdEncoding.EncodeToString(sig.R),
-		S:          base64.RawStdEncoding.EncodeToString(sig.S),
-		RecoveryID: base64.RawStdEncoding.EncodeToString(sig.SignatureRecovery),
+		Msg:          req.MessageToSign,
+		R:            hex.EncodeToString(sig.R),
+		S:            hex.EncodeToString(sig.S),
+		DerSignature: hex.EncodeToString(derSig),
+		RecoveryID:   hex.EncodeToString(sig.SignatureRecovery),
 	}, nil
 }
 
