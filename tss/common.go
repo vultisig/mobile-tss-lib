@@ -38,12 +38,20 @@ func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 	if pubKey == nil {
 		return "", errors.New("nil ECPoint")
 	}
-
 	if !pubKey.IsOnCurve() {
 		return "", errors.New("invalid ECPoint")
 	}
-	pubKeyBytes := elliptic.MarshalCompressed(pubKey.Curve(), pubKey.X(), pubKey.Y())
+	var pubKeyBytes []byte
+	if pubKey.Curve() == tss.S256() {
+		pubKeyBytes = elliptic.MarshalCompressed(pubKey.Curve(), pubKey.X(), pubKey.Y())
+	} else if pubKey.Curve() == tss.Edwards() {
+		pubKeyBytes = pubKey.Y().Bytes()
+		if pubKey.X().Sign() < 0 {
+			pubKeyBytes[len(pubKeyBytes)-1] |= 0x80
+		}
+	}
 	return hex.EncodeToString(pubKeyBytes), nil
+
 }
 
 // Contains checks if a given string slice contains a specific search term.
