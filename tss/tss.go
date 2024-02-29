@@ -480,7 +480,7 @@ func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error
 	errCh := make(chan struct{})
 	ctx := tss.NewPeerContext(keysignPartyIDs)
 	params := tss.NewParameters(curve, ctx, localPartyID, len(keysignPartyIDs), threshold)
-	m := HashToInt(bytesToSign, curve)
+	m := new(big.Int).SetBytes(bytesToSign)
 	keysignParty := eddsaSigning.NewLocalParty(m, params, localState.EDDSALocalData, outCh, endCh)
 
 	go func() {

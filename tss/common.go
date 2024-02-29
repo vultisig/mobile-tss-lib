@@ -17,6 +17,7 @@ import (
 	"github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/decred/dcrd/dcrec/edwards/v2"
 )
 
 // GetThreshold calculates the threshold value based on the input value.
@@ -45,13 +46,10 @@ func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 	if pubKey.Curve().Params().Name == "secp256k1" {
 		pubKeyBytes = elliptic.MarshalCompressed(pubKey.Curve(), pubKey.X(), pubKey.Y())
 	} else { // EdDSA
-		pubKeyBytes = pubKey.Y().Bytes()
-		if pubKey.X().Sign() < 0 {
-			pubKeyBytes[len(pubKeyBytes)-1] |= 0x80
-		}
+		ePublicKey := edwards.NewPublicKey(pubKey.X(), pubKey.Y())
+		pubKeyBytes = ePublicKey.SerializeCompressed()
 	}
 	return hex.EncodeToString(pubKeyBytes), nil
-
 }
 
 // Contains checks if a given string slice contains a specific search term.
