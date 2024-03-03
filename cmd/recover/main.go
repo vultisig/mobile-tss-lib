@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
 	binanceTss "github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
+	coskey "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli/v2"
@@ -72,15 +76,39 @@ func main() {
 }
 
 // getTssSecretFile reads a file and returns the KeygenLocalState struct
-func getLocalStateFromFile(file string) (tss.LocalState, error) {
+func getLocalStateFromFile(file string, keytype string) (tss.LocalState, error) {
+	var vault struct {
+		Keyshares []struct {
+			Pubkey   string `json:"pubkey"`
+			Keyshare string `json:"keyshare"`
+		} `json:"keyshares"`
+	}
 	var localState tss.LocalState
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
 		return localState, err
 	}
-	err = json.Unmarshal(fileContent, &localState)
+	if strings.HasSuffix(file, ".hex") || strings.HasSuffix(file, ".dat") {
+		fileContent, err = hex.DecodeString(string(fileContent))
+		if err != nil {
+			return localState, err
+		}
+	}
+	err = json.Unmarshal(fileContent, &vault)
 	if err != nil {
 		return localState, err
+	}
+
+	for _, item := range vault.Keyshares {
+		if err := json.Unmarshal([]byte(item.Keyshare), &localState); err != nil {
+			return localState, err
+		}
+		if keytype == "ECDSA" && localState.ECDSALocalData.ShareID != nil {
+			return localState, nil
+		}
+		if keytype == "EdDSA" && localState.EDDSALocalData.ShareID != nil {
+			return localState, nil
+		}
 	}
 	return localState, nil
 }
@@ -93,17 +121,13 @@ func recoverAction(context *cli.Context) error {
 	isECDSA := keytype == "ECDSA"
 	allSecret := make([]tss.LocalState, len(files))
 	for i, f := range files {
-		tssSecret, err := getLocalStateFromFile(f)
+		tssSecret, err := getLocalStateFromFile(f, keytype)
 		if err != nil {
 			return err
 		}
 		allSecret[i] = tssSecret
 	}
-	committeeSize := len(allSecret[0].KeygenCommitteeKeys)
-	threshold, err := tss.GetThreshold(committeeSize)
-	if err != nil {
-		return err
-	}
+	threshold := len(files)
 	vssShares := make(vss.Shares, len(allSecret))
 	for i, s := range allSecret {
 		if isECDSA {
@@ -158,6 +182,11 @@ func recoverAction(context *cli.Context) error {
 			name:       "ethereum",
 			derivePath: "m/44'/60'/0'/0/0",
 			action:     showEthereumKey,
+		},
+		{
+			name:       "thorchain",
+			derivePath: "m/44'/931'/0'/0/0",
+			action:     showThorchainKey,
 		},
 	}
 	for _, coin := range supportedCoins {
@@ -226,5 +255,31 @@ func showBitcoinKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	fmt.Println("hex encoded non-hardened public key for bitcoin:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
 	fmt.Println("address:", addressPubKey.EncodeAddress())
 	fmt.Println("WIF private key for bitcoin:", wif.String())
+	return nil
+}
+func showThorchainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+
+	fmt.Println("non-hardened extended private key for THORChain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for THORChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for THORChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("thor", "thorpub")
+	config.SetBech32PrefixForValidator("thorv", "thorvpub")
+	config.SetBech32PrefixForConsensusNode("thorc", "thorcpub")
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+	addr := types.AccAddress(compressedPubkey.Address().Bytes())
+	fmt.Println("address:", addr.String())
 	return nil
 }
