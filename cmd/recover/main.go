@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
 	binanceTss "github.com/bnb-chain/tss-lib/v2/tss"
@@ -75,15 +76,39 @@ func main() {
 }
 
 // getTssSecretFile reads a file and returns the KeygenLocalState struct
-func getLocalStateFromFile(file string) (tss.LocalState, error) {
+func getLocalStateFromFile(file string, keytype string) (tss.LocalState, error) {
+	var vault struct {
+		Keyshares []struct {
+			Pubkey   string `json:"pubkey"`
+			Keyshare string `json:"keyshare"`
+		} `json:"keyshares"`
+	}
 	var localState tss.LocalState
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
 		return localState, err
 	}
-	err = json.Unmarshal(fileContent, &localState)
+	if strings.HasSuffix(file, ".hex") || strings.HasSuffix(file, ".dat") {
+		fileContent, err = hex.DecodeString(string(fileContent))
+		if err != nil {
+			return localState, err
+		}
+	}
+	err = json.Unmarshal(fileContent, &vault)
 	if err != nil {
 		return localState, err
+	}
+
+	for _, item := range vault.Keyshares {
+		if err := json.Unmarshal([]byte(item.Keyshare), &localState); err != nil {
+			return localState, err
+		}
+		if keytype == "ECDSA" && localState.ECDSALocalData.ShareID != nil {
+			return localState, nil
+		}
+		if keytype == "EdDSA" && localState.EDDSALocalData.ShareID != nil {
+			return localState, nil
+		}
 	}
 	return localState, nil
 }
@@ -96,17 +121,13 @@ func recoverAction(context *cli.Context) error {
 	isECDSA := keytype == "ECDSA"
 	allSecret := make([]tss.LocalState, len(files))
 	for i, f := range files {
-		tssSecret, err := getLocalStateFromFile(f)
+		tssSecret, err := getLocalStateFromFile(f, keytype)
 		if err != nil {
 			return err
 		}
 		allSecret[i] = tssSecret
 	}
-	committeeSize := len(allSecret[0].KeygenCommitteeKeys)
-	threshold, err := tss.GetThreshold(committeeSize)
-	if err != nil {
-		return err
-	}
+	threshold := len(files)
 	vssShares := make(vss.Shares, len(allSecret))
 	for i, s := range allSecret {
 		if isECDSA {
