@@ -12,6 +12,9 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
+	coskey "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/cosmos/cosmos-sdk/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli/v2"
@@ -159,6 +162,11 @@ func recoverAction(context *cli.Context) error {
 			derivePath: "m/44'/60'/0'/0/0",
 			action:     showEthereumKey,
 		},
+		{
+			name:       "thorchain",
+			derivePath: "m/44'/931'/0'/0/0",
+			action:     showThorchainKey,
+		},
 	}
 	for _, coin := range supportedCoins {
 		fmt.Println("Recovering", coin.name, "key")
@@ -226,5 +234,31 @@ func showBitcoinKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	fmt.Println("hex encoded non-hardened public key for bitcoin:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
 	fmt.Println("address:", addressPubKey.EncodeAddress())
 	fmt.Println("WIF private key for bitcoin:", wif.String())
+	return nil
+}
+func showThorchainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+
+	fmt.Println("non-hardened extended private key for THORChain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for THORChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for THORChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("thor", "thorpub")
+	config.SetBech32PrefixForValidator("thorv", "thorvpub")
+	config.SetBech32PrefixForConsensusNode("thorc", "thorcpub")
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+	addr := types.AccAddress(compressedPubkey.Address().Bytes())
+	fmt.Println("address:", addr.String())
 	return nil
 }
