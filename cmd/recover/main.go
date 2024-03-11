@@ -162,6 +162,7 @@ func recoverAction(context *cli.Context) error {
 	fmt.Println("hex encoded root privkey:", hex.EncodeToString(privateKey.Serialize()))
 	net := &chaincfg.MainNetParams
 	chaincode := allSecret[0].ChainCodeHex
+	fmt.Println("chaincode:", chaincode)
 	chaincodeBuf, err := hex.DecodeString(chaincode)
 	if err != nil {
 		return err
