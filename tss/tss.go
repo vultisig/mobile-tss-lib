@@ -19,6 +19,7 @@ import (
 	ecdsaResharing "github.com/bnb-chain/tss-lib/v2/ecdsa/resharing"
 	"github.com/bnb-chain/tss-lib/v2/ecdsa/signing"
 	eddsaKeygen "github.com/bnb-chain/tss-lib/v2/eddsa/keygen"
+	eddsaResharing "github.com/bnb-chain/tss-lib/v2/eddsa/resharing"
 	eddsaSigning "github.com/bnb-chain/tss-lib/v2/eddsa/signing"
 	"github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/decred/dcrd/dcrec/edwards/v2"
@@ -351,19 +352,19 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*KeygenResponse, error)
 		return nil, fmt.Errorf("failed to get old threshold: %w", err)
 	}
 	totalPartiesCount := len(req.GetAllParties())
-	threshod, err := GetThreshold(totalPartiesCount)
+	threshold, err := GetThreshold(totalPartiesCount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
-	params := tss.NewReSharingParameters(curve, oldCtx, ctx, localPartyID, oldPartiesCount, oldThreshold, totalPartiesCount, threshod)
-	outCh := make(chan tss.Message, totalPartiesCount*2)                                   // message channel
+	params := tss.NewReSharingParameters(curve, oldCtx, ctx, localPartyID, oldPartiesCount, oldThreshold, totalPartiesCount, threshold)
+	outCh := make(chan tss.Message, totalPartiesCount+oldPartiesCount)                     // message channel
 	endCh := make(chan *ecdsaKeygen.LocalPartySaveData, totalPartiesCount+oldPartiesCount) // result channel
 	newLocalState := &LocalState{
 		KeygenCommitteeKeys: req.GetAllParties(),
 		LocalPartyKey:       req.LocalPartyID,
 		ChainCodeHex:        req.ChainCodeHex, // ChainCode will be used later for ECDSA key derivation
 	}
-	errChan := make(chan struct{})
+	errChan := make(chan struct{}, totalPartiesCount+oldPartiesCount)
 	localPartyECDSA := ecdsaResharing.NewLocalParty(params, localState.ECDSALocalData, outCh, endCh)
 	go func() {
 		tErr := localPartyECDSA.Start()
@@ -372,7 +373,75 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*KeygenResponse, error)
 			close(errChan)
 		}
 	}()
-	pubKey, err := s.processResharing(localPartyECDSA, errChan, outCh, endCh, nil, newLocalState, partyIDs)
+	pubKey, err := s.processResharing(localPartyECDSA, errChan, outCh, endCh, nil, newLocalState, partyIDs, localState.KeygenCommitteeKeys)
+	if err != nil {
+		log.Println("failed to process keygen", "error", err)
+		return nil, err
+	}
+	return &KeygenResponse{
+		PubKey: pubKey,
+	}, nil
+}
+
+func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*KeygenResponse, error) {
+	// restore the local saved data
+	localStateStr, err := s.stateAccessor.GetLocalState(req.PubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local state, error: %w", err)
+	}
+	var localState LocalState
+	if err := json.Unmarshal([]byte(localStateStr), &localState); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal local state, error: %w", err)
+	}
+	if localState.EDDSALocalData.EDDSAPub == nil {
+		return nil, errors.New("nil EdDSA pub key")
+	}
+	if localState.ChainCodeHex == "" {
+		return nil, errors.New("nil chain code")
+	}
+
+	// old parties
+	oldPartyIDs, _, err := s.getParties(localState.KeygenCommitteeKeys, localState.LocalPartyKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get old keygen parties: %w", err)
+	}
+
+	// new parties
+	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get new resharing parties: %w", err)
+	}
+	oldCtx := tss.NewPeerContext(oldPartyIDs)
+	ctx := tss.NewPeerContext(partyIDs)
+	curve := tss.Edwards()
+	oldPartiesCount := len(localState.KeygenCommitteeKeys)
+	oldThreshold, err := GetThreshold(oldPartiesCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get old threshold: %w", err)
+	}
+	totalPartiesCount := len(req.GetAllParties())
+	threshold, err := GetThreshold(totalPartiesCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get threshold: %w", err)
+	}
+	params := tss.NewReSharingParameters(curve, oldCtx, ctx, localPartyID, oldPartiesCount, oldThreshold, totalPartiesCount, threshold)
+	outCh := make(chan tss.Message, totalPartiesCount+oldPartiesCount)                     // message channel
+	endCh := make(chan *eddsaKeygen.LocalPartySaveData, totalPartiesCount+oldPartiesCount) // result channel
+	newLocalState := &LocalState{
+		KeygenCommitteeKeys: req.GetAllParties(),
+		LocalPartyKey:       req.LocalPartyID,
+		ChainCodeHex:        req.ChainCodeHex, // ChainCode will be used later for ECDSA key derivation
+	}
+	errChan := make(chan struct{}, totalPartiesCount+oldPartiesCount)
+	localPartyEdDSA := eddsaResharing.NewLocalParty(params, localState.EDDSALocalData, outCh, endCh)
+	go func() {
+		tErr := localPartyEdDSA.Start()
+		if tErr != nil {
+			log.Println("failed to start keygen process", "error", tErr)
+			close(errChan)
+		}
+	}()
+	pubKey, err := s.processResharing(localPartyEdDSA, errChan, outCh, nil, endCh, newLocalState, partyIDs, localState.KeygenCommitteeKeys)
 	if err != nil {
 		log.Println("failed to process keygen", "error", err)
 		return nil, err
@@ -388,7 +457,8 @@ func (s *ServiceImpl) processResharing(localParty tss.Party,
 	ecdsaEndCh <-chan *ecdsaKeygen.LocalPartySaveData,
 	eddsaEndCh <-chan *eddsaKeygen.LocalPartySaveData,
 	localState *LocalState,
-	sortedPartyIds tss.SortedPartyIDs) (string, error) {
+	sortedPartyIds tss.SortedPartyIDs,
+	oldParties []string) (string, error) {
 
 	for {
 		// wait for result
@@ -410,23 +480,40 @@ func (s *ServiceImpl) processResharing(localParty tss.Party,
 				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
 			}
 			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			if r.IsBroadcast || r.To == nil {
-				for _, item := range localState.KeygenCommitteeKeys {
-					// don't send message to itself
-					if item == localState.LocalPartyKey {
-						continue
-					}
-					if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
-						return "", fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+			if r.To == nil {
+				return "", fmt.Errorf("doesn't expect r.To to be nil during resharing")
+			}
+			for _, item := range r.To {
+				// don't send message to itself
+				if item.Moniker == localState.LocalPartyKey {
+					continue
+				}
+				// send to everyone
+				if r.IsToOldAndNewCommittees {
+					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
 					}
 				}
-			} else {
-				for _, item := range r.To {
+				// send to old committee only
+				if r.IsToOldCommittee && !r.IsToOldAndNewCommittees {
+					if !Contains(oldParties, item.Moniker) {
+						continue
+					}
+					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
+					}
+				}
+				// only send to new committee
+				if !r.IsToOldCommittee && !r.IsToOldAndNewCommittees {
+					if Contains(oldParties, item.Moniker) {
+						continue
+					}
 					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
 					}
 				}
 			}
+
 		case msg := <-s.inboundMessageCh:
 			// apply the message to the tss instance
 			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
