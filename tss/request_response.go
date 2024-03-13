@@ -39,10 +39,14 @@ type KeysignResponse struct {
 type ReshareRequest struct {
 	PubKey       string `json:"pub_key"`
 	LocalPartyID string `json:"local_party_id"`
-	AllParties   string `json:"all_parties"`
+	NewParties   string `json:"all_parties"`
 	ChainCodeHex string `json:"chain_code_hex"`
+	OldParties   string `json:"old_parties"`
 }
 
-func (r ReshareRequest) GetAllParties() []string {
-	return strings.Split(r.AllParties, ",")
+func (r ReshareRequest) GetNewParties() []string {
+	return strings.Split(r.NewParties, ",")
+}
+func (r ReshareRequest) GetOldParties() []string {
+	return strings.Split(r.OldParties, ",")
 }
