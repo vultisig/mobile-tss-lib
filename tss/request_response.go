@@ -34,3 +34,24 @@ type KeysignResponse struct {
 	DerSignature string `json:"der_signature"`
 	RecoveryID   string `json:"recovery_id"` // mostly used in ETH
 }
+
+// ReshareRequest is used to request a reshare
+type ReshareRequest struct {
+	PubKey        string `json:"pub_key"`
+	LocalPartyID  string `json:"local_party_id"`
+	NewParties    string `json:"all_parties"`
+	ChainCodeHex  string `json:"chain_code_hex"`
+	OldParties    string `json:"old_parties"`
+	ResharePrefix string `json:"reshare_prefix"`
+}
+type ReshareResponse struct {
+	PubKey        string `json:"pub_key"`
+	ResharePrefix string `json:"reshare_prefix"`
+}
+
+func (r ReshareRequest) GetNewParties() []string {
+	return strings.Split(r.NewParties, ",")
+}
+func (r ReshareRequest) GetOldParties() []string {
+	return strings.Split(r.OldParties, ",")
+}
