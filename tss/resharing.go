@@ -19,7 +19,7 @@ import (
 	"github.com/bnb-chain/tss-lib/v2/tss"
 )
 
-func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*KeygenResponse, error) {
+func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*ReshareResponse, error) {
 	// ensure chaincode is set appropriately for ECDSA keygen
 	if req.ChainCodeHex == "" {
 		return nil, fmt.Errorf("ChainCodeHex is empty")
@@ -42,7 +42,7 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*KeygenResponse, error)
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
 	var localECDSAPub *ecdsaKeygen.LocalPartySaveData
-	var resharePrefix string
+	resharePrefix := req.ResharePrefix
 	// when a new member join the resharing process, it should not have the local state of the previous keygen
 	if req.PubKey != "" {
 		// restore the local saved data
@@ -136,12 +136,13 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*KeygenResponse, error)
 		log.Println("failed to process resharing", "error", err)
 		return nil, err
 	}
-	return &KeygenResponse{
-		PubKey: pubKey,
+	return &ReshareResponse{
+		PubKey:        pubKey,
+		ResharePrefix: newResharePrefix,
 	}, nil
 }
 
-func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*KeygenResponse, error) {
+func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*ReshareResponse, error) {
 	var localEdDSAPubData *eddsaKeygen.LocalPartySaveData
 	oldPartiesCount := len(req.GetOldParties())
 	oldThreshold, err := GetThreshold(oldPartiesCount)
@@ -153,7 +154,7 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*KeygenResponse, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
-	var resharePrefix string
+	resharePrefix := req.ResharePrefix
 	if req.PubKey != "" {
 		// restore the local saved data
 		localStateStr, err := s.stateAccessor.GetLocalState(req.PubKey)
@@ -229,8 +230,9 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*KeygenResponse, erro
 		log.Println("failed to process keyshare", "error", err)
 		return nil, err
 	}
-	return &KeygenResponse{
-		PubKey: pubKey,
+	return &ReshareResponse{
+		PubKey:        pubKey,
+		ResharePrefix: newResharePrefix,
 	}, nil
 }
 
