@@ -311,7 +311,13 @@ func (s *ServiceImpl) processResharing(oldLocalParty tss.Party,
 
 		case saveData := <-ecdsaEndCh:
 			if saveData.ECDSAPub == nil {
-				continue
+				// when both new party and old party are on the same node , it should wait for both to finish
+				// if the node is new node only , then it should not be here , saveDave.ECDSA will not be nil
+				if newLocalParty != nil {
+					continue
+				} else {
+					return "", nil
+				}
 			}
 			pubKey, err := GetHexEncodedPubKey(saveData.ECDSAPub)
 			if err != nil {
@@ -325,7 +331,11 @@ func (s *ServiceImpl) processResharing(oldLocalParty tss.Party,
 			return pubKey, nil
 		case saveData := <-eddsaEndCh:
 			if saveData.EDDSAPub == nil {
-				continue
+				if newLocalParty != nil {
+					continue
+				} else {
+					return "", nil
+				}
 			}
 			pubKey, err := GetHexEncodedPubKey(saveData.EDDSAPub)
 			if err != nil {
