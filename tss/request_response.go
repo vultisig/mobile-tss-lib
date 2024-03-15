@@ -37,12 +37,13 @@ type KeysignResponse struct {
 
 // ReshareRequest is used to request a reshare
 type ReshareRequest struct {
-	PubKey        string `json:"pub_key"`
-	LocalPartyID  string `json:"local_party_id"`
-	NewParties    string `json:"all_parties"`
-	ChainCodeHex  string `json:"chain_code_hex"`
-	OldParties    string `json:"old_parties"`
-	ResharePrefix string `json:"reshare_prefix"`
+	PubKey           string `json:"pub_key"`
+	LocalPartyID     string `json:"local_party_id"`
+	NewParties       string `json:"all_parties"`
+	ChainCodeHex     string `json:"chain_code_hex"`
+	OldParties       string `json:"old_parties"`
+	ResharePrefix    string `json:"reshare_prefix"`
+	NewResharePrefix string `json:"new_reshare_prefix"`
 }
 type ReshareResponse struct {
 	PubKey        string `json:"pub_key"`
