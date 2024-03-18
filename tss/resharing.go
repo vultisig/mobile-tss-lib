@@ -75,8 +75,14 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*ReshareResponse, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get old keygen parties: %w", err)
 	}
-	newResharePrefix := getNewResharePrefix(req.NewParties)
-	s.resharePrefix = newResharePrefix
+	if req.NewResharePrefix != "" && req.NewResharePrefix == resharePrefix {
+		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
+	}
+	newResharePrefix := req.NewResharePrefix
+	if newResharePrefix == "" {
+		newResharePrefix = getNewResharePrefix(req.NewParties)
+		s.resharePrefix = newResharePrefix
+	}
 	// new parties, it's key will start with a new reshare prefix
 	partyIDs, localPartyID, err := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
 	if err != nil {
@@ -176,8 +182,14 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*ReshareResponse, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to get old keygen parties: %w", err)
 	}
-	newResharePrefix := getNewResharePrefix(req.NewParties)
-	s.resharePrefix = newResharePrefix
+	if req.NewResharePrefix != "" && req.NewResharePrefix == resharePrefix {
+		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
+	}
+	newResharePrefix := req.NewResharePrefix
+	if newResharePrefix == "" {
+		newResharePrefix = getNewResharePrefix(req.NewParties)
+		s.resharePrefix = newResharePrefix
+	}
 	// new parties
 	partyIDs, newLocalPartyID, err := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
 	if err != nil {
