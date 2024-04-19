@@ -77,11 +77,14 @@ func main() {
 
 // getTssSecretFile reads a file and returns the KeygenLocalState struct
 func getLocalStateFromFile(file string, keytype string) (tss.LocalState, error) {
-	var vault struct {
-		Keyshares []struct {
-			Pubkey   string `json:"pubkey"`
-			Keyshare string `json:"keyshare"`
-		} `json:"keyshares"`
+	var voltixBackup struct {
+		Vault struct {
+			Keyshares []struct {
+				Pubkey   string `json:"pubkey"`
+				Keyshare string `json:"keyshare"`
+			} `json:"keyshares"`
+		} `json:"vault"`
+		Version string `json:"version"`
 	}
 	var localState tss.LocalState
 	fileContent, err := os.ReadFile(file)
@@ -94,12 +97,12 @@ func getLocalStateFromFile(file string, keytype string) (tss.LocalState, error) 
 			return localState, err
 		}
 	}
-	err = json.Unmarshal(fileContent, &vault)
+
+	err = json.Unmarshal(fileContent, &voltixBackup)
 	if err != nil {
 		return localState, err
 	}
-
-	for _, item := range vault.Keyshares {
+	for _, item := range voltixBackup.Vault.Keyshares {
 		if err := json.Unmarshal([]byte(item.Keyshare), &localState); err != nil {
 			return localState, err
 		}
@@ -189,6 +192,11 @@ func recoverAction(context *cli.Context) error {
 			derivePath: "m/44'/931'/0'/0/0",
 			action:     showThorchainKey,
 		},
+		{
+			name:       "mayachain",
+			derivePath: "m/44'/931'/0'/0/0",
+			action:     showMayachainKey,
+		},
 	}
 	for _, coin := range supportedCoins {
 		fmt.Println("Recovering", coin.name, "key")
@@ -276,6 +284,33 @@ func showThorchainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	config.SetBech32PrefixForAccount("thor", "thorpub")
 	config.SetBech32PrefixForValidator("thorv", "thorvpub")
 	config.SetBech32PrefixForConsensusNode("thorc", "thorcpub")
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+	addr := types.AccAddress(compressedPubkey.Address().Bytes())
+	fmt.Println("address:", addr.String())
+	return nil
+}
+
+func showMayachainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+
+	fmt.Println("non-hardened extended private key for MAYAChain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for MAYAChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for MAYAChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("maya", "mayapub")
+	config.SetBech32PrefixForValidator("mayav", "mayavpub")
+	config.SetBech32PrefixForConsensusNode("mayac", "mayacpub")
 
 	compressedPubkey := coskey.PubKey{
 		Key: nonHardenedPubKey.SerializeCompressed(),
