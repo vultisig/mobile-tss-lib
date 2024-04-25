@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Key Recovery Tool</title>
+    <script src="wasm_exec.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+        background-color: #f4f4f9;
+        color: #333;
+      }
+
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 90%;
+        margin: 20px auto;
+        transition: width 0.3s ease;
+      }
+
+      h1 {
+        text-align: center;
+        color: #4a54f1;
+        font-size: 24px;
+      }
+
+      label {
+        font-weight: bold;
+        display: block;
+        margin-top: 20px;
+      }
+
+      input,
+      select,
+      button {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+      }
+
+      button {
+        background-color: #4a54f1;
+        color: white;
+        border: none;
+        margin-top: 20px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #3a44d1;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 8px;
+        border-bottom: 1px solid #ccc;
+        word-wrap: break-word;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        table-layout: fixed;
+      }
+
+      th {
+        background-color: #f4f4f9;
+      }
+
+      @media (max-width: 768px) {
+        body {
+          margin: 20px;
+        }
+
+        .container {
+          width: 100%;
+        }
+
+        h1 {
+          font-size: 20px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        label,
+        input,
+        select,
+        button {
+          font-size: 14px;
+        }
+
+        button {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>Voltix Vault Recovery</h1>
+      <div>
+        <label for="keyFiles">Upload Key Shares:</label>
+        <input type="file" id="keyFiles" multiple />
+        <label for="keyType">Key Type:</label>
+        <select id="keyType">
+          <option value="ECDSA">ECDSA</option>
+          <option value="EdDSA">EdDSA</option>
+        </select>
+        <button onclick="recover()">Recover Key</button>
+      </div>
+      <table id="result"></table>
+    </div>
+
+    <script>
+      const go = new Go();
+      WebAssembly.instantiateStreaming(
+        fetch("main.wasm"),
+        go.importObject
+      ).then((result) => {
+        go.run(result.instance);
+      });
+
+      async function recover() {
+        const files = document.getElementById("keyFiles").files;
+        const keyType = document.getElementById("keyType").value;
+        const readers = [];
+
+        for (let file of files) {
+          const reader = new FileReader();
+          reader.readAsText(file);
+          readers.push(
+            new Promise((resolve) => {
+              reader.onload = () =>
+                resolve({
+                  name: file.name,
+                  content: reader.result,
+                });
+            })
+          );
+        }
+
+        Promise.all(readers).then((files) => {
+          const result = recoverKey(JSON.stringify(files), keyType);
+          displayResult(result);
+        });
+      }
+
+      function displayResult(data) {
+        const table = document.getElementById("result");
+        table.innerHTML = ""; // Clear previous results
+        const sortedKeys = Object.keys(data).sort(); // Sort keys alphabetically
+        sortedKeys.forEach((key) => {
+          const row = table.insertRow(-1);
+          const cell1 = row.insertCell(0);
+          const cell2 = row.insertCell(1);
+          cell1.innerHTML = `<strong>${key}</strong>`;
+          cell2.innerHTML = data[key];
+        });
+      }
+    </script>
+  </body>
+</html>

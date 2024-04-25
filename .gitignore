@@ -1,4 +1,9 @@
 Tss.xcframework/
 .DS_Store
 .idea/
-recover
+**/*.json
+**/*.dat
+**/*.go!
+**/.DS_Store
+*.wasm
+wasm_exec.js
