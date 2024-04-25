@@ -1,4 +1,4 @@
-package main
+package coordinator
 
 import (
 	"crypto/rand"
@@ -13,8 +13,34 @@ import (
 
 	"github.com/bnb-chain/tss-lib/v2/common"
 
-	"github.com/voltix-vault/mobile-tss-lib/tss"
+	tss "github.com/voltix-vault/mobile-tss-lib/tss"
 )
+
+type ReshareInput struct {
+	Server        string
+	Session       string
+	Key           string
+	KeyFolder     string
+	ChainCode     string
+	PubKey        string
+	PubKeyEdDSA   string
+	ResharePrefix string
+	Parties       []string
+	OldParties    []string
+}
+
+type KeygenInput struct {
+	Server      string
+	Session     string
+	Key         string
+	KeyFolder   string
+	Parties     []string
+	Message     string
+	ChainCode   string
+	DerivePath  string
+	PubKey      string
+	PubKeyEdDSA string
+}
 
 // Generates a 32-byte random chain code encoded as a hexadecimal string.
 // Does not take arg because it relies on the (secure) rng from the crypto pkg
@@ -83,22 +109,9 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	return resp.PubKey, nil
 }
 
-type ReshareInput struct {
-	Key           string
-	KeyFolder     string
-	Parties       []string
-	Session       string
-	Server        string
-	ChainCode     string
-	PubKey        string
-	PubKeyEdDSA   string
-	OldParties    []string
-	ResharePrefix string
-}
-
 // Manages the key resharing process for ECDSA & EdDSA
 // ensures all parties are synced and sessions are properly handled
-func ExecuteKeyResharing(input *ReshareInput) error {
+func ExecuteKeyResharing(input ReshareInput) error {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return fmt.Errorf("fail to register session: %w", err)
 	}
@@ -154,21 +167,6 @@ func ExecuteKeyResharing(input *ReshareInput) error {
 	close(endCh)
 	wg.Wait()
 	return nil
-}
-
-type KeygenInput struct {
-	Server        string
-	Session       string
-	Parties       []string
-	OldParties    []string
-	Message       string
-	ChainCode     string
-	ResharePrefix string
-	DerivePath    string
-	Key           string
-	PubKey        string
-	PubKeyEdDSA   string
-	KeyFolder     string
 }
 
 // Coordinates ECDSA signing process in a TSS env
@@ -232,19 +230,9 @@ func PerformECDSAKeySigning(input KeygenInput) error {
 	return nil
 }
 
-type KeygenEDDSAInput struct {
-	Key       string
-	KeyFolder string
-	Parties   []string
-	Session   string
-	Server    string
-	PubKey    string
-	Message   string
-}
-
 // Coordinates EdDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
-func PerformEdDSAKeySigning(input KeygenEDDSAInput) error {
+func PerformEdDSAKeySigning(input KeygenInput) error {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return fmt.Errorf("fail to register session: %w", err)
 	}
