@@ -1,17 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"log"
 	"os"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/voltix-vault/mobile-tss-lib/tss"
 	coordinator "github.com/voltix-vault/mobile-tss-lib/coordinator"
 )
 
@@ -63,7 +58,7 @@ func main() {
 						Hidden:     false,
 					},
 				},
-				Action: runCmd,
+				Action: keygenCmd,
 			},
 			{
 				Name: "reshare",
@@ -113,12 +108,12 @@ func main() {
 			// 	Action: generateChainCode,
 			// },
 			{
-				Name: "sign",
+				Name: "signECDSA",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:       "pubkey",
 						Aliases:    []string{"pk"},
-						Usage:      "pubkey that will be used to do keysign",
+						Usage:      "ECDSA pubkey that will be used to do keysign",
 						Required:   true,
 						HasBeenSet: false,
 						Hidden:     false,
@@ -137,7 +132,7 @@ func main() {
 						Required: true,
 					},
 				},
-				Action: keysignCmd,
+				Action: keysignECDSACmd,
 			},
 			{
 				Name: "signEDDSA",
@@ -145,7 +140,7 @@ func main() {
 					&cli.StringFlag{
 						Name:       "pubkey",
 						Aliases:    []string{"pk"},
-						Usage:      "pubkey that will be used to do keysign",
+						Usage:      "EDDSA pubkey that will be used to do keysign",
 						Required:   true,
 						HasBeenSet: false,
 						Hidden:     false,
@@ -169,35 +164,27 @@ func main() {
 	}
 }
 
-// type LocalStateAccessorImp struct {
-// 	key string
-// }
-
-// func (l *LocalStateAccessorImp) GetLocalState(pubKey string) (string, error) {
-// 	fileName := pubKey + "-" + l.key + ".json"
-// 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
-// 		return "", fmt.Errorf("file %s does not exist", pubKey)
-// 	}
-// 	buf, err := os.ReadFile(fileName)
-// 	if err != nil {
-// 		return "", fmt.Errorf("fail to read file %s: %w", fileName, err)
-// 	}
-// 	return string(buf), nil
-// }
-
-// func (l *LocalStateAccessorImp) SaveLocalState(pubKey, localState string) error {
-// 	fileName := pubKey + "-" + l.key + ".json"
-// 	return os.WriteFile(fileName, []byte(localState), 0644)
-// }
-
-func runCmd(c *cli.Context) error {
+func keygenCmd(c *cli.Context) error {
 	key := c.String("key")
 	parties := c.StringSlice("parties")
 	session := c.String("session")
 	server := c.String("server")
 	chaincode := c.String("chaincode")
 
-	keysign, err := ExecuteKeyGeneration()
+	fmt.Println("keygen", key, parties, session, server, chaincode)
+
+	keysign, err := coordinator.ExecuteKeyGeneration(coordinator.KeygenInput{
+		Key:       key,
+		Parties:   parties,
+		Session:   session,
+		Server:    server,
+		ChainCode: chaincode,
+	})
+	if err != nil {
+		return err
+	}
+
+	return json.NewEncoder(os.Stdout).Encode(keysign)
 }
 
 func reshareCmd(c *cli.Context) error {
@@ -211,9 +198,26 @@ func reshareCmd(c *cli.Context) error {
 	oldParties := c.StringSlice("old-parties")
 	resharePrefix := c.String("reshareprefix")
 
+	err := coordinator.ExecuteKeyResharing(coordinator.ReshareInput{
+		Key:           key,
+		Parties:       parties,
+		Session:       session,
+		Server:        server,
+		ChainCode:     chaincode,
+		PubKey:        pubKey,
+		PubKeyEdDSA:   pubkeyEdDSA,
+		OldParties:    oldParties,
+		ResharePrefix: resharePrefix,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func keysignCmd(c *cli.Context) error {
+func keysignECDSACmd(c *cli.Context) error {
 	key := c.String("key")
 	parties := c.StringSlice("parties")
 	session := c.String("session")
@@ -222,6 +226,21 @@ func keysignCmd(c *cli.Context) error {
 	message := c.String("message")
 	derivePath := c.String("derivepath")
 
+	err := coordinator.PerformECDSAKeySigning(coordinator.KeygenInput{
+		Key:        key,
+		Parties:    parties,
+		Session:    session,
+		Server:     server,
+		PubKey:     pubkey,
+		Message:    message,
+		DerivePath: derivePath,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func keysignEDDSACmd(c *cli.Context) error {
@@ -232,4 +251,18 @@ func keysignEDDSACmd(c *cli.Context) error {
 	pubkey := c.String("pubkey")
 	message := c.String("message")
 
+	err := coordinator.PerformEdDSAKeySigning(coordinator.KeygenInput{
+		Key:     key,
+		Parties: parties,
+		Session: session,
+		Server:  server,
+		PubKey:  pubkey,
+		Message: message,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
