@@ -22,45 +22,47 @@ import (
 	"github.com/voltix-vault/mobile-tss-lib/tss"
 )
 
+func commonFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "server",
+			Aliases: []string{"s"},
+			Usage:   "server address",
+			Value:   "http://127.0.0.1:8080",
+		},
+		&cli.StringFlag{
+			Name:       "key",
+			Aliases:    []string{"k"},
+			Usage:      "something to uniquely identify local party",
+			Required:   true,
+			HasBeenSet: false,
+			Hidden:     false,
+		},
+		&cli.StringSliceFlag{
+			Name:       "parties",
+			Aliases:    []string{"p"},
+			Usage:      "comma separated list of party keys, need to have all the keys of the keygen committee",
+			Required:   true,
+			HasBeenSet: false,
+			Hidden:     false,
+		},
+		&cli.StringFlag{
+			Name:       "session",
+			Usage:      "current communication session",
+			Required:   true,
+			HasBeenSet: false,
+			Hidden:     false,
+		},
+	}
+}
 func main() {
 	app := cli.App{
 		Name:  "tss-test",
 		Usage: "tss-test is a tool for testing tss library.",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "server",
-				Aliases: []string{"s"},
-				Usage:   "server address",
-				Value:   "http://127.0.0.1:8080",
-			},
-			&cli.StringFlag{
-				Name:       "key",
-				Aliases:    []string{"k"},
-				Usage:      "something to uniquely identify local party",
-				Required:   true,
-				HasBeenSet: false,
-				Hidden:     false,
-			},
-			&cli.StringSliceFlag{
-				Name:       "parties",
-				Aliases:    []string{"p"},
-				Usage:      "comma separated list of party keys, need to have all the keys of the keygen committee",
-				Required:   true,
-				HasBeenSet: false,
-				Hidden:     false,
-			},
-			&cli.StringFlag{
-				Name:       "session",
-				Usage:      "current communication session",
-				Required:   true,
-				HasBeenSet: false,
-				Hidden:     false,
-			},
-		},
 		Commands: []*cli.Command{
 			{
 				Name: "keygen",
-				Flags: []cli.Flag{
+				Flags: append(commonFlags(),
 					&cli.StringFlag{
 						Name:       "chaincode",
 						Aliases:    []string{"cc"},
@@ -68,13 +70,12 @@ func main() {
 						Required:   true,
 						HasBeenSet: false,
 						Hidden:     false,
-					},
-				},
+					}),
 				Action: runCmd,
 			},
 			{
 				Name: "reshare",
-				Flags: []cli.Flag{
+				Flags: append(commonFlags(),
 					&cli.StringFlag{
 						Name:       "chaincode",
 						Aliases:    []string{"cc"},
@@ -111,17 +112,17 @@ func main() {
 						Required:   false,
 						HasBeenSet: false,
 						Hidden:     false,
-					},
-				},
+					}),
 				Action: reshareCmd,
 			},
 			{
 				Name:   "chaincode",
 				Action: generateChainCode,
+				Flags:  commonFlags(),
 			},
 			{
 				Name: "sign",
-				Flags: []cli.Flag{
+				Flags: append(commonFlags(),
 					&cli.StringFlag{
 						Name:       "pubkey",
 						Aliases:    []string{"pk"},
@@ -142,13 +143,12 @@ func main() {
 						Name:     "derivepath",
 						Usage:    "derive path for bitcoin, e.g. m/84'/0'/0'/0/0",
 						Required: true,
-					},
-				},
+					}),
 				Action: keysignCmd,
 			},
 			{
 				Name: "signEDDSA",
-				Flags: []cli.Flag{
+				Flags: append(commonFlags(),
 					&cli.StringFlag{
 						Name:       "pubkey",
 						Aliases:    []string{"pk"},
@@ -164,8 +164,7 @@ func main() {
 						Required:   true,
 						HasBeenSet: false,
 						Hidden:     false,
-					},
-				},
+					}),
 				Action: keysignEDDSACmd,
 			},
 		},
