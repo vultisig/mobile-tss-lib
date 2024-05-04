@@ -1,8 +1,10 @@
-package wasmcoordinator
+package main
 
 import (
-	coordinator "github.com/voltix-vault/mobile-tss-lib/coordinator"
+	"strings"
 	"syscall/js"
+
+	coordinator "github.com/voltix-vault/mobile-tss-lib/coordinator"
 )
 
 func main() {
@@ -25,16 +27,12 @@ func GenerateRandomChainCodeHex(this js.Value, p []js.Value) interface{} {
 
 func ExecuteKeyGeneration(this js.Value, p []js.Value) interface{} {
 	input := coordinator.KeygenInput{
-		Server:      p[0].String(),
-		Session:     p[1].String(),
-		Key:         p[2].String(),
-		KeyFolder:   p[3].String(),
-		Parties:     p[4].String(),
-		Message:     p[5].String(),
-		ChainCode:   p[6].String(),
-		DerivePath:  p[7].String(),
-		PubKey:      p[8].String(),
-		PubKeyEdDSA: p[9].String(),
+		Server:    p[0].String(),
+		Session:   p[1].String(),
+		Key:       p[2].String(),
+		KeyFolder: p[3].String(),
+		Parties:   strings.Split(p[4].String(), ","),
+		ChainCode: p[5].String(),
 	}
 	key, err := coordinator.ExecuteKeyGeneration(input)
 	if err != nil {
@@ -53,23 +51,23 @@ func ExecuteKeyResharing(this js.Value, p []js.Value) interface{} {
 		PubKey:        p[5].String(),
 		PubKeyEdDSA:   p[6].String(),
 		ResharePrefix: p[7].String(),
-		Parties:       p[8].String(),
-		OldParties:    p[9].String(),
+		Parties:       strings.Split(p[8].String(), ","),
+		OldParties:    strings.Split(p[9].String(), ","),
 	}
-	err := coordinator.ExecuteKeyResharing(input)
+	key, err := coordinator.ExecuteKeyResharing(input)
 	if err != nil {
 		return err.Error()
 	}
-	return nil
+	return key
 }
 
 func ExecuteECDSAKeySigning(this js.Value, p []js.Value) interface{} {
-	input := coordinator.SigningInput{
+	input := coordinator.SignInput{
 		Server:      p[0].String(),
 		Session:     p[1].String(),
 		Key:         p[2].String(),
 		KeyFolder:   p[3].String(),
-		Parties:     p[4].String(),
+		Parties:     strings.Split(p[4].String(), ","),
 		Message:     p[5].String(),
 		ChainCode:   p[6].String(),
 		DerivePath:  p[7].String(),
@@ -84,12 +82,12 @@ func ExecuteECDSAKeySigning(this js.Value, p []js.Value) interface{} {
 }
 
 func ExecuteEdDSAKeySigning(this js.Value, p []js.Value) interface{} {
-	input := coordinator.SigningInput{
+	input := coordinator.SignInput{
 		Server:      p[0].String(),
 		Session:     p[1].String(),
 		Key:         p[2].String(),
 		KeyFolder:   p[3].String(),
-		Parties:     p[4].String(),
+		Parties:     strings.Split(p[4].String(), ","),
 		Message:     p[5].String(),
 		ChainCode:   p[6].String(),
 		DerivePath:  p[7].String(),
