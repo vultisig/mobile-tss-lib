@@ -3,10 +3,11 @@
 # Variables
 GOROOT := $(shell go env GOROOT)
 WASM_EXEC_JS := $(GOROOT)/misc/wasm/wasm_exec.js
-BUILD_DIR := ./wasm
+BUILD_DIR := ./
 
 # Default target
 all: copy_js build
+test_build: copy_js build test
 
 # Build the WASM binary
 build:
@@ -28,3 +29,8 @@ clean:
 dev:
 	@echo "Building WebAssembly module..."
 	find . -type f | entr -s 'make build'
+
+# Tests
+test:
+	@echo "Running tests..."
+	@go test -v ./...
