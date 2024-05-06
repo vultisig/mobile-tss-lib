@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
 import "./wasm_exec.js"; // This adds global.Go
 
 // Load the WebAssembly wasm file

@@ -12,7 +12,7 @@ const session = Math.floor(Math.random() * 1e6).toString();
 
 console.log(`Session: ${session}`);
 
-const keyFolderBase = "../keys/";
+const keyFolderBase = "../../keys/";
 
 const parties = ["first", "second", "third"];
 
