@@ -19,8 +19,8 @@ keygen:
 
 keysign:
 	trap 'kill $$PID_LIST' SIGINT; \
-	go run main.go --key first --parties first,second --session $(SESSION) sign --pubkey $(PUBKEY) --message $(MESSAGE) --derivepath $(DERIVEPATH) & PID_LIST=$$!; \
-	go run main.go --key second --parties first,second --session $(SESSION) sign --pubkey $(PUBKEY) --message $(MESSAGE) --derivepath $(DERIVEPATH) & PID_LIST="$$PID_LIST $$!"; \
+	go run main.go --key first --parties first,second --session $(SESSION) signECDSA --pubkey $(PUBKEY) --message $(MESSAGE) --derivepath $(DERIVEPATH) & PID_LIST=$$!; \
+	go run main.go --key second --parties first,second --session $(SESSION) signECDSA --pubkey $(PUBKEY) --message $(MESSAGE) --derivepath $(DERIVEPATH) & PID_LIST="$$PID_LIST $$!"; \
 	wait $$PID_LIST
 
 reshare:
