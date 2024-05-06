@@ -14,7 +14,9 @@ go.run(instance);
 
 // Export extractURL from the global object
 export const executeKeyGeneration = global.executeKeyGeneration;
+export const hello = global.hello;
 
 // Cleanup references
 delete global.Go;
 delete global.executeKeyGeneration;
+delete global.hello;

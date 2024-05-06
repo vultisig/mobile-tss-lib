@@ -17,7 +17,11 @@ func registerSession(server, session, key string) error {
 	sessionUrl := server + "/" + session
 	body := []byte("[\"" + key + "\"]")
 	bodyReader := bytes.NewReader(body)
+
 	resp, err := http.Post(sessionUrl, "application/json", bodyReader)
+
+	fmt.Println(sessionUrl)
+
 	if err != nil {
 		return fmt.Errorf("fail to register session: %w", err)
 	}
