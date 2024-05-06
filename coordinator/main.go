@@ -42,6 +42,19 @@ type KeygenInput struct {
 	PubKeyEdDSA string
 }
 
+type SignInput struct {
+	Server      string
+	Session     string
+	Key         string
+	KeyFolder   string
+	Parties     []string
+	Message     string
+	ChainCode   string
+	DerivePath  string
+	PubKey      string
+	PubKeyEdDSA string
+}
+
 // Generates a 32-byte random chain code encoded as a hexadecimal string.
 // Does not take arg because it relies on the (secure) rng from the crypto pkg
 func GenerateRandomChainCodeHex() (string, error) {
@@ -171,12 +184,12 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 
 // Coordinates ECDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
-func ExecuteECDSAKeySigning(input KeygenInput) (string, error) {
+func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
-		return  "", fmt.Errorf("fail to register session: %w", err)
+		return "", fmt.Errorf("fail to register session: %w", err)
 	}
 	if err := waitAllParties(input.Parties, input.Server, input.Session); err != nil {
-		return  "", fmt.Errorf("fail to wait all parties: %w", err)
+		return "", fmt.Errorf("fail to wait all parties: %w", err)
 	}
 	messenger := &MessengerImp{
 		Server:    input.Server,
@@ -188,7 +201,7 @@ func ExecuteECDSAKeySigning(input KeygenInput) (string, error) {
 	}
 	tssServerImp, err := tss.NewService(messenger, localStateAccessor, false)
 	if err != nil {
-		return  "", fmt.Errorf("fail to create tss server: %w", err)
+		return "", fmt.Errorf("fail to create tss server: %w", err)
 	}
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
@@ -208,11 +221,11 @@ func ExecuteECDSAKeySigning(input KeygenInput) (string, error) {
 
 	rBytes, err := base64.RawStdEncoding.DecodeString(resp.R)
 	if err != nil {
-		return  "", fmt.Errorf("fail to decode r: %w", err)
+		return "", fmt.Errorf("fail to decode r: %w", err)
 	}
 	sBytes, err := base64.RawStdEncoding.DecodeString(resp.S)
 	if err != nil {
-		return  "", fmt.Errorf("fail to decode s: %w", err)
+		return "", fmt.Errorf("fail to decode s: %w", err)
 	}
 	signature := append(rBytes, sBytes...)
 	signatureEncoded := base64.StdEncoding.EncodeToString(signature)
@@ -233,7 +246,7 @@ func ExecuteECDSAKeySigning(input KeygenInput) (string, error) {
 
 // Coordinates EdDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
-func ExecuteEdDSAKeySigning(input KeygenInput) (string, error) {
+func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
@@ -250,7 +263,7 @@ func ExecuteEdDSAKeySigning(input KeygenInput) (string, error) {
 	}
 	tssServerImp, err := tss.NewService(messenger, localStateAccessor, false)
 	if err != nil {
-		return  "", fmt.Errorf("fail to create tss server: %w", err)
+		return "", fmt.Errorf("fail to create tss server: %w", err)
 	}
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
