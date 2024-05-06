@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -173,7 +172,7 @@ func keygenCmd(c *cli.Context) error {
 
 	fmt.Println("keygen", key, parties, session, server, chaincode)
 
-	keysign, err := coordinator.ExecuteKeyGeneration(coordinator.KeygenInput{
+	_, err := coordinator.ExecuteKeyGeneration(coordinator.KeygenInput{
 		Key:       key,
 		Parties:   parties,
 		Session:   session,
@@ -184,7 +183,8 @@ func keygenCmd(c *cli.Context) error {
 		return err
 	}
 
-	return json.NewEncoder(os.Stdout).Encode(keysign)
+	// return json.NewEncoder(os.Stdout).Encode(keysign)
+	return nil
 }
 
 func reshareCmd(c *cli.Context) error {
@@ -198,7 +198,7 @@ func reshareCmd(c *cli.Context) error {
 	oldParties := c.StringSlice("old-parties")
 	resharePrefix := c.String("reshareprefix")
 
-	err := coordinator.ExecuteKeyResharing(coordinator.ReshareInput{
+	_, err := coordinator.ExecuteKeyResharing(coordinator.ReshareInput{
 		Key:           key,
 		Parties:       parties,
 		Session:       session,
@@ -226,7 +226,7 @@ func keysignECDSACmd(c *cli.Context) error {
 	message := c.String("message")
 	derivePath := c.String("derivepath")
 
-	err := coordinator.PerformECDSAKeySigning(coordinator.KeygenInput{
+	_, err := coordinator.ExecuteECDSAKeySigning(coordinator.SignInput{
 		Key:        key,
 		Parties:    parties,
 		Session:    session,
@@ -251,7 +251,7 @@ func keysignEDDSACmd(c *cli.Context) error {
 	pubkey := c.String("pubkey")
 	message := c.String("message")
 
-	err := coordinator.PerformEdDSAKeySigning(coordinator.KeygenInput{
+	_, err := coordinator.ExecuteEdDSAKeySigning(coordinator.SignInput{
 		Key:     key,
 		Parties: parties,
 		Session: session,

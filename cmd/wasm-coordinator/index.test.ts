@@ -36,7 +36,7 @@ test("execute multiple key generations simultaneously", async () => {
       parties.toString(),
       chainCode,
     )
-      .then((publicKey) => {
+      .then((publicKey: string) => {
         console.log(`Public key for ${party}: ${publicKey}`);
         return publicKey;
       })
