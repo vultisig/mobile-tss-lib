@@ -1,4 +1,7 @@
-import { executeKeyGeneration, hello } from "./init.ts";
+import { readFile } from "fs/promises";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
+import "./wasm_exec.js"; // This adds Go to the global scope
 
 const server = "http://127.0.0.1:8080";
 const chainCode =
@@ -7,49 +10,52 @@ const publicKey =
   "020c0de41f4b57e64bfab9387a095d72b1f2c835c8083ae61e45a3d2de2dccda77";
 const message = "aGVsbG8gd29ybGQK";
 const derivationPath = "m/84'/0'/0'/0/0";
-// const session random rounded number between 1 and 1m
 const session = Math.floor(Math.random() * 1e6).toString();
 
-console.log(`Session: ${session}`);
+async function main() {
+  const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
+  const wasmBuffer = await readFile(resolve(CURRENT_DIR, "./main.wasm"));
 
-const keyFolderBase = "../../keys/";
+  const keyFolderBase = "../../keys/";
+  const parties = ["first", "second", "third"];
 
-const parties = ["first", "second", "third"];
+  const promises = parties.map(async (party) => {
+    // Create a new Go instance for each key generation
+    const go = new global.Go();
+    const { instance } = await WebAssembly.instantiate(
+      wasmBuffer,
+      go.importObject,
+    );
+    go.run(instance);
 
-// const response = await executeKeyGeneration(
-//   server,
-//   session,
-//   "first",
-//   "../keys/first",
-//   parties.toString(),
-//   chainCode,
-// );
-
-// const response = await hello();
-// console.log(response);
-
-const promises = parties.map((party) => {
-  return executeKeyGeneration(
-    server,
-    session,
-    party,
-    keyFolderBase + party,
-    parties.toString(),
-    chainCode,
-  )
-    .then((publicKey) => {
+    try {
+      const publicKey = await global.executeKeyGeneration(
+        server,
+        session,
+        party,
+        keyFolderBase + party,
+        parties.toString(),
+        chainCode,
+      );
       console.log(`Public key for ${party}: ${publicKey}`);
       return publicKey;
-    })
-    .catch((error) => {
+    } catch (error) {
       console.error(`Execution for ${party} failed:`, error);
       return null; // Handle error, e.g., return null or a specific error marker
-    });
-});
+    } finally {
+      // Cleanup Go instance after use
+      go.exit();
+    }
+  });
 
-const results = await Promise.all(promises);
+  const results = await Promise.all(promises);
 
-// Check all public keys
-results.forEach((publicKey, index) => {
-  console.log(publicKey);
-});
+  // Output all public keys
+  results.forEach((publicKey, index) => {
+    if (publicKey) {
+      console.log(`Public key ${index + 1}: ${publicKey}`);
+    }
+  });
+}
+
+main();

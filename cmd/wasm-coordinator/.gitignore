@@ -1,0 +1,3 @@
+yarn.lock
+*.bun-build
+node_modules
