@@ -17,6 +17,7 @@ func main() {
 	js.Global().Set("ExecuteECDSAKeySigning", js.FuncOf(ExecuteECDSAKeySigning))
 	js.Global().Set("ExecuteEdDSAKeySigning", js.FuncOf(ExecuteEdDSAKeySigning))
 	js.Global().Set("hello", Hello())
+
 	<-c
 }
 
