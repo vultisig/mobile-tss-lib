@@ -22,10 +22,10 @@ import (
 
 // GetThreshold calculates the threshold value based on the input value.
 // It takes an integer value as input and returns the threshold value and an error.
-// If the input value is negative, it returns an error with the message "negative input".
+// If the input value is negative, it returns an error with the message "invalid input".
 func GetThreshold(value int) (int, error) {
-	if value < 0 {
-		return 0, errors.New("negative input")
+	if value < 2 {
+		return 0, errors.New("invalid input")
 	}
 	threshold := int(math.Ceil(float64(value)*2.0/3.0)) - 1
 	return threshold, nil
