@@ -100,6 +100,10 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*ReshareResponse, error
 	var pubKey string
 	var oldLocalPartyECDSA tss.Party
 	var newLocalPartyECDSA tss.Party
+	if localPartyID == nil && oldLocalPartyID == nil {
+		return nil, fmt.Errorf("local party id and old local party id should not be nil at the same time")
+	}
+
 	// when local party is in the new committee start the new committee first, since
 	// it will be waiting for messages from the old committee
 	if localPartyID != nil {
@@ -214,6 +218,9 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*ReshareResponse, err
 	errChan := make(chan struct{}, newPartiesCount+oldPartiesCount)
 	var oldLocalPartyEdDSA tss.Party
 	var newLocalPartyEdDSA tss.Party
+	if newLocalPartyID == nil && oldLocalPartyID == nil {
+		return nil, fmt.Errorf("local party id and old local party id should not be nil at the same time")
+	}
 	// when local party is in the new committee
 	if newLocalPartyID != nil {
 		// new committee member will get new local party save data after resharing is done
