@@ -336,7 +336,7 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	pathBuf, err := GetDerivePathBytes(req.DerivePath)
-	if err != nil {
+	if err != nil || len(pathBuf) == 0 {
 		return nil, fmt.Errorf("failed to get derive path bytes, error: %w", err)
 	}
 	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, curve)
