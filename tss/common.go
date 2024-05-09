@@ -20,6 +20,8 @@ import (
 	"github.com/decred/dcrd/dcrec/edwards/v2"
 )
 
+const MaxUint32 = ^uint32(0)
+
 // GetThreshold calculates the threshold value based on the input value.
 // It takes an integer value as input and returns the threshold value and an error.
 // If the input value is negative, it returns an error with the message "invalid input".
@@ -109,9 +111,6 @@ func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (strin
 		return "", fmt.Errorf("decode hex chain code failed: %w", err)
 	}
 	curve := tss.S256()
-	if isEdDSA {
-		curve = tss.Edwards()
-	}
 	// elliptic.UnmarshalCompressed doesn't work, probably because of a curve
 	// thus here we use btcec.ParsePubKey to unmarshal the compressed public key
 	pubKey, err := btcec.ParsePubKey(pubKeyBuf)
@@ -170,6 +169,9 @@ func GetDerivePathBytes(derivePath string) ([]uint32, error) {
 		intResult, err := strconv.Atoi(result)
 		if err != nil {
 			return nil, fmt.Errorf("invalid path: %w", err)
+		}
+		if intResult < 0 || intResult > int(MaxUint32) {
+			return nil, fmt.Errorf("integer value %d cannot fit into a uint32", intResult)
 		}
 		pathBuf = append(pathBuf, uint32(intResult))
 	}
