@@ -88,6 +88,9 @@ func HashToInt(hash []byte, c elliptic.Curve) *big.Int {
 }
 
 func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (string, error) {
+	if isEdDSA {
+		return "", errors.New("don't support to derive pubkey for EdDSA now")
+	}
 	if len(hexPubKey) == 0 {
 		return "", errors.New("empty pub key")
 	}
