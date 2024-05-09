@@ -83,6 +83,9 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*ReshareResponse, error
 		newResharePrefix = getNewResharePrefix(req.NewParties)
 		s.resharePrefix = newResharePrefix
 	}
+	if newResharePrefix == resharePrefix {
+		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
+	}
 	// new parties, it's key will start with a new reshare prefix
 	partyIDs, localPartyID, err := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
 	if err != nil {
@@ -189,6 +192,9 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*ReshareResponse, err
 	if newResharePrefix == "" {
 		newResharePrefix = getNewResharePrefix(req.NewParties)
 		s.resharePrefix = newResharePrefix
+	}
+	if newResharePrefix == resharePrefix {
+		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
 	}
 	// new parties
 	partyIDs, newLocalPartyID, err := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
