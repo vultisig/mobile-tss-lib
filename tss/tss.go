@@ -336,7 +336,7 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	pathBuf, err := GetDerivePathBytes(req.DerivePath)
-	if err != nil {
+	if err != nil || len(pathBuf) == 0 {
 		return nil, fmt.Errorf("failed to get derive path bytes, error: %w", err)
 	}
 	il, derivedKey, err := derivingPubkeyFromPath(localState.ECDSALocalData.ECDSAPub, chainCodeBuf, pathBuf, curve)
@@ -474,7 +474,7 @@ func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error
 	}
 	// derivepath is not applicable for EdDSA
 	curve := tss.Edwards()
-	outCh := make(chan tss.Message, len(keysignPartyIDs)*3)
+	outCh := make(chan tss.Message, len(keysignPartyIDs)*2)
 	endCh := make(chan *common.SignatureData, len(keysignPartyIDs))
 	errCh := make(chan struct{})
 	ctx := tss.NewPeerContext(keysignPartyIDs)
