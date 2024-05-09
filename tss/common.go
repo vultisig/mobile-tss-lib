@@ -110,6 +110,9 @@ func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (strin
 	if err != nil {
 		return "", fmt.Errorf("decode hex chain code failed: %w", err)
 	}
+	if len(chainCodeBuf) != 32 {
+		return "", errors.New("invalid chain code length")
+	}
 	curve := tss.S256()
 	// elliptic.UnmarshalCompressed doesn't work, probably because of a curve
 	// thus here we use btcec.ParsePubKey to unmarshal the compressed public key
@@ -122,9 +125,7 @@ func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (strin
 	if err != nil {
 		return "", fmt.Errorf("new ec point failed: %w", err)
 	}
-	if len(chainCodeBuf) != 32 {
-		return "", errors.New("invalid chain code length")
-	}
+
 	pathBuf, err := GetDerivePathBytes(path)
 	if err != nil {
 		return "", fmt.Errorf("get derive path bytes failed: %w", err)

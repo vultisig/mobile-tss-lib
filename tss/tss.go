@@ -68,7 +68,7 @@ func NewService(msg Messenger, stateAccessor LocalStateAccessor, createPreParam 
 	return serviceImp, nil
 }
 
-func (s *ServiceImpl) getParties(allPartyKeys []string, localPartyKey string, keyPrefix string) ([]*tss.PartyID, *tss.PartyID, error) {
+func (s *ServiceImpl) getParties(allPartyKeys []string, localPartyKey string, keyPrefix string) ([]*tss.PartyID, *tss.PartyID) {
 	var localPartyID *tss.PartyID
 	var unSortedPartiesID []*tss.PartyID
 	sort.Strings(allPartyKeys)
@@ -81,7 +81,7 @@ func (s *ServiceImpl) getParties(allPartyKeys []string, localPartyKey string, ke
 		unSortedPartiesID = append(unSortedPartiesID, partyID)
 	}
 	partyIDs := tss.SortPartyIDs(unSortedPartiesID)
-	return partyIDs, localPartyID, nil
+	return partyIDs, localPartyID
 }
 
 func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
@@ -96,10 +96,8 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	if len(chaincode) != 32 {
 		return nil, fmt.Errorf("invalid chain code length")
 	}
-	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get parties: %w", err)
-	}
+	partyIDs, localPartyID := s.getParties(req.GetAllParties(), req.LocalPartyID, "")
+
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.S256()
 	totalPartiesCount := len(req.GetAllParties())
@@ -227,7 +225,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 		case saveData := <-eddsaEndCh:
 			pubKey, err := GetHexEncodedPubKey(saveData.EDDSAPub)
 			if err != nil {
-				return "", fmt.Errorf("failed to get hex encoded ecdsa pub key, error: %w", err)
+				return "", fmt.Errorf("failed to get hex encoded eddsa pub key, error: %w", err)
 			}
 			localState.PubKey = pubKey
 			localState.EDDSALocalData = *saveData
@@ -253,10 +251,7 @@ func (s *ServiceImpl) saveLocalStateData(localState *LocalState) error {
 }
 
 func (s *ServiceImpl) KeygenEdDSA(req *KeygenRequest) (*KeygenResponse, error) {
-	partyIDs, localPartyID, err := s.getParties(req.GetAllParties(), req.LocalPartyID, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get parties: %w", err)
-	}
+	partyIDs, localPartyID := s.getParties(req.GetAllParties(), req.LocalPartyID, "")
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.Edwards()
 	totalPartiesCount := len(req.GetAllParties())
@@ -323,10 +318,8 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
 		return nil, errors.New("local party not in keysign committee")
 	}
-	keysignPartyIDs, localPartyID, err := s.getParties(keysignCommittee, localState.LocalPartyKey, localState.ResharePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get keysign parties: %w", err)
-	}
+	keysignPartyIDs, localPartyID := s.getParties(keysignCommittee, localState.LocalPartyKey, localState.ResharePrefix)
+
 	threshold, err := GetThreshold(len(localState.KeygenCommitteeKeys))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
@@ -464,10 +457,8 @@ func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error
 	if !Contains(keysignCommittee, localState.LocalPartyKey) {
 		return nil, errors.New("local party not in keysign committee")
 	}
-	keysignPartyIDs, localPartyID, err := s.getParties(keysignCommittee, localState.LocalPartyKey, localState.ResharePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get keysign parties: %w", err)
-	}
+	keysignPartyIDs, localPartyID := s.getParties(keysignCommittee, localState.LocalPartyKey, localState.ResharePrefix)
+
 	threshold, err := GetThreshold(len(localState.KeygenCommitteeKeys))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
