@@ -70,11 +70,9 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*ReshareResponse, error
 		}
 		resharePrefix = localState.ResharePrefix
 	}
-	// old parties, it's key will start with old-
-	oldPartyIDs, oldLocalPartyID, err := s.getParties(req.GetOldParties(), req.LocalPartyID, resharePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get old keygen parties: %w", err)
-	}
+	// old parties, it's key will start with old reshare prefix
+	oldPartyIDs, oldLocalPartyID := s.getParties(req.GetOldParties(), req.LocalPartyID, resharePrefix)
+
 	if req.NewResharePrefix != "" && req.NewResharePrefix == resharePrefix {
 		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
 	}
@@ -87,10 +85,8 @@ func (s *ServiceImpl) ReshareECDSA(req *ReshareRequest) (*ReshareResponse, error
 		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
 	}
 	// new parties, it's key will start with a new reshare prefix
-	partyIDs, localPartyID, err := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get new resharing parties: %w", err)
-	}
+	partyIDs, localPartyID := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
+
 	oldCtx := tss.NewPeerContext(oldPartyIDs)
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.S256()
@@ -185,10 +181,8 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*ReshareResponse, err
 		resharePrefix = localState.ResharePrefix
 	}
 	// old parties
-	oldPartyIDs, oldLocalPartyID, err := s.getParties(req.GetOldParties(), req.LocalPartyID, resharePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get old keygen parties: %w", err)
-	}
+	oldPartyIDs, oldLocalPartyID := s.getParties(req.GetOldParties(), req.LocalPartyID, resharePrefix)
+
 	if req.NewResharePrefix != "" && req.NewResharePrefix == resharePrefix {
 		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
 	}
@@ -201,10 +195,8 @@ func (s *ServiceImpl) ResharingEdDSA(req *ReshareRequest) (*ReshareResponse, err
 		return nil, fmt.Errorf("old reshare prefix and new reshare prefix should not be the same")
 	}
 	// new parties
-	partyIDs, newLocalPartyID, err := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get new resharing parties: %w", err)
-	}
+	partyIDs, newLocalPartyID := s.getParties(req.GetNewParties(), req.LocalPartyID, newResharePrefix)
+
 	oldCtx := tss.NewPeerContext(oldPartyIDs)
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.Edwards()
@@ -373,7 +365,7 @@ func (s *ServiceImpl) processResharing(oldLocalParty tss.Party,
 			}
 			return pubKey, nil
 		case <-time.After(2 * time.Minute):
-			return "", errors.New("keygen timeout, keygen didn't finish in 2 minutes")
+			return "", errors.New("reshare timeout, reshare didn't finish in 2 minutes")
 		}
 	}
 }
