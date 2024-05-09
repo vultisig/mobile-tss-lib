@@ -43,9 +43,14 @@ func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 		return "", errors.New("invalid ECPoint")
 	}
 	var pubKeyBytes []byte
+
 	if pubKey.Curve().Params().Name == "secp256k1" {
 		pubKeyBytes = elliptic.MarshalCompressed(pubKey.Curve(), pubKey.X(), pubKey.Y())
 	} else { // EdDSA
+		_, isEdDSA := pubKey.Curve().(*edwards.TwistedEdwardsCurve)
+		if !isEdDSA {
+			return "", errors.New("invalid curve type")
+		}
 		ePublicKey := edwards.NewPublicKey(pubKey.X(), pubKey.Y())
 		pubKeyBytes = ePublicKey.SerializeCompressed()
 	}

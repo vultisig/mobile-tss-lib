@@ -1,7 +1,11 @@
 package tss
 
 import (
+	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/rand"
+	tcrypto "github.com/bnb-chain/tss-lib/v2/crypto"
+	"github.com/bnb-chain/tss-lib/v2/tss"
 	"math/big"
 	"testing"
 )
@@ -139,4 +143,85 @@ func TestGetDerivedPubKey(t *testing.T) {
 		t.Errorf("Test case 8 failed. Expected error, but got nil")
 	}
 
+}
+
+func TestGetHexEncodedPubKey(t *testing.T) {
+	type args struct {
+		pubKey *tcrypto.ECPoint
+	}
+	ecdsaX, _ := new(big.Int).SetString("21928708132099675384867870052778859384271735028720521957500319457431433014092", 10)
+	ecdsaY, _ := new(big.Int).SetString("10616429500690735800004987866660355042492770172215427705333704836921723252534", 10)
+	ecdsaPublicKey, _ := tcrypto.NewECPoint(tss.S256(), ecdsaX, ecdsaY)
+
+	eddsaX, _ := new(big.Int).SetString("16745217530479055209735561963374249354166281759281007139554801128164539308488", 10)
+	eddsaY, _ := new(big.Int).SetString("52246105616378493849426619478679937279416995531990203021757038020087213117188", 10)
+	eddsaPublicKey, _ := tcrypto.NewECPoint(tss.Edwards(), eddsaX, eddsaY)
+
+	notOnCurvePubKey, _ := tcrypto.NewECPoint(tss.S256(), new(big.Int).SetInt64(1), new(big.Int).SetInt64(1))
+
+	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	ecdsaPublicKey_invalid, _ := tcrypto.NewECPoint(elliptic.P521(), privKey.X, privKey.Y)
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "ECDSA",
+			args: args{
+				pubKey: ecdsaPublicKey,
+			},
+			want:    "02307b357ecd58a5ea9362052b23a4b23d8e78304d74196ea5bf45f499b5dc6b4c",
+			wantErr: false,
+		},
+		{
+			name: "EdDSA",
+			args: args{
+				pubKey: eddsaPublicKey,
+			},
+			want:    "04cf7e39c3f96c044c38b0048a39edd7549396cdcd780911ec887104733f8273",
+			wantErr: false,
+		},
+		{
+			name: "Nil-point",
+			args: args{
+				pubKey: nil,
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Not On curve",
+			args: args{
+				pubKey: notOnCurvePubKey,
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Invalid curve",
+			args: args{
+				pubKey: ecdsaPublicKey_invalid,
+			},
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetHexEncodedPubKey(tt.args.pubKey)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetHexEncodedPubKey() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("GetHexEncodedPubKey() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
