@@ -225,7 +225,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 		case saveData := <-eddsaEndCh:
 			pubKey, err := GetHexEncodedPubKey(saveData.EDDSAPub)
 			if err != nil {
-				return "", fmt.Errorf("failed to get hex encoded ecdsa pub key, error: %w", err)
+				return "", fmt.Errorf("failed to get hex encoded eddsa pub key, error: %w", err)
 			}
 			localState.PubKey = pubKey
 			localState.EDDSALocalData = *saveData
