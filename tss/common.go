@@ -20,12 +20,14 @@ import (
 	"github.com/decred/dcrd/dcrec/edwards/v2"
 )
 
+const MaxUint32 = ^uint32(0)
+
 // GetThreshold calculates the threshold value based on the input value.
 // It takes an integer value as input and returns the threshold value and an error.
-// If the input value is negative, it returns an error with the message "negative input".
+// If the input value is negative, it returns an error with the message "invalid input".
 func GetThreshold(value int) (int, error) {
-	if value < 0 {
-		return 0, errors.New("negative input")
+	if value < 2 {
+		return 0, errors.New("invalid input")
 	}
 	threshold := int(math.Ceil(float64(value)*2.0/3.0)) - 1
 	return threshold, nil
@@ -43,9 +45,14 @@ func GetHexEncodedPubKey(pubKey *tcrypto.ECPoint) (string, error) {
 		return "", errors.New("invalid ECPoint")
 	}
 	var pubKeyBytes []byte
+
 	if pubKey.Curve().Params().Name == "secp256k1" {
 		pubKeyBytes = elliptic.MarshalCompressed(pubKey.Curve(), pubKey.X(), pubKey.Y())
 	} else { // EdDSA
+		_, isEdDSA := pubKey.Curve().(*edwards.TwistedEdwardsCurve)
+		if !isEdDSA {
+			return "", errors.New("invalid curve type")
+		}
 		ePublicKey := edwards.NewPublicKey(pubKey.X(), pubKey.Y())
 		pubKeyBytes = ePublicKey.SerializeCompressed()
 	}
@@ -83,6 +90,9 @@ func HashToInt(hash []byte, c elliptic.Curve) *big.Int {
 }
 
 func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (string, error) {
+	if isEdDSA {
+		return "", errors.New("don't support to derive pubkey for EdDSA now")
+	}
 	if len(hexPubKey) == 0 {
 		return "", errors.New("empty pub key")
 	}
@@ -101,9 +111,6 @@ func GetDerivedPubKey(hexPubKey, hexChainCode, path string, isEdDSA bool) (strin
 		return "", fmt.Errorf("decode hex chain code failed: %w", err)
 	}
 	curve := tss.S256()
-	if isEdDSA {
-		curve = tss.Edwards()
-	}
 	// elliptic.UnmarshalCompressed doesn't work, probably because of a curve
 	// thus here we use btcec.ParsePubKey to unmarshal the compressed public key
 	pubKey, err := btcec.ParsePubKey(pubKeyBuf)
@@ -162,6 +169,9 @@ func GetDerivePathBytes(derivePath string) ([]uint32, error) {
 		intResult, err := strconv.Atoi(result)
 		if err != nil {
 			return nil, fmt.Errorf("invalid path: %w", err)
+		}
+		if intResult < 0 || intResult > int(MaxUint32) {
+			return nil, fmt.Errorf("integer value %d cannot fit into a uint32", intResult)
 		}
 		pathBuf = append(pathBuf, uint32(intResult))
 	}
