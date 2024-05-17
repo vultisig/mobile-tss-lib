@@ -1,4 +1,8 @@
-# mobile-tss-lib
+# Voltix TSS Library
+
+Note: this repository is currently called `mobile-tss-lib` but will be renamed to a generic Voltix library in the future.
+
+## Generate mobile bindings
 
 ```bash
 # after I run `go mod tidy` , I will have to download mobile bind library again , otherwise gomobile command won't run
