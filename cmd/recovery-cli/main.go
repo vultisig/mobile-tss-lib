@@ -102,6 +102,10 @@ func getLocalStateFromFile(file string, keytype string) (tss.LocalState, error) 
 	if err != nil {
 		return localState, err
 	}
+
+	// fmt.Println("voltixBackup: ", voltixBackup)
+	// PrettyPrint(voltixBackup)
+
 	for _, item := range voltixBackup.Vault.Keyshares {
 		if err := json.Unmarshal([]byte(item.Keyshare), &localState); err != nil {
 			return localState, err
@@ -171,6 +175,7 @@ func recoverAction(context *cli.Context) error {
 		return err
 	}
 	extendedPrivateKey := hdkeychain.NewExtendedKey(net.HDPrivateKeyID[:], privateKey.Serialize(), chaincodeBuf, []byte{0x00, 0x00, 0x00, 0x00}, 0, 0, true)
+	fmt.Println("extended private key full:", extendedPrivateKey.String())
 
 	supportedCoins := []struct {
 		name       string
@@ -201,6 +206,7 @@ func recoverAction(context *cli.Context) error {
 	for _, coin := range supportedCoins {
 		fmt.Println("Recovering", coin.name, "key")
 		key, err := getDerivedPrivateKeys(coin.derivePath, extendedPrivateKey)
+		fmt.Println("private key for ", coin.name, ":", key.String())
 		if err != nil {
 			return fmt.Errorf("error deriving private key for %s: %w", coin.name, err)
 		}
