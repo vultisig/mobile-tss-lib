@@ -1,4 +1,4 @@
-module github.com/voltix-vault/mobile-tss-lib
+module github.com/vultisig/mobile-tss-lib
 
 go 1.21.1
 
