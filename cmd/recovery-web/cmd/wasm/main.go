@@ -15,7 +15,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/voltix-vault/mobile-tss-lib/tss"
+	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
 func main() {

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/voltix-vault/mobile-tss-lib/tss"
+	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
 func registerSession(server, session, key string) error {

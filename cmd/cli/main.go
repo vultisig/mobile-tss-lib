@@ -6,7 +6,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	coordinator "github.com/voltix-vault/mobile-tss-lib/coordinator"
+	coordinator "github.com/vultisig/mobile-tss-lib/coordinator"
 )
 
 func main() {

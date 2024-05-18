@@ -21,7 +21,7 @@ require (
 	github.com/ethereum/go-ethereum v1.13.12
 	github.com/gcash/bchd v0.19.0
 	github.com/gcash/bchutil v0.0.0-20210113190856-6ea28dff4000
-	github.com/voltix-vault/mobile-tss-lib v0.0.0-20240419100338-5913a9595f56
+	github.com/vultisig/mobile-tss-lib v0.0.0-20240419100338-5913a9595f56
 )
 
 require (

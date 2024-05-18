@@ -13,7 +13,7 @@ import (
 
 	"github.com/bnb-chain/tss-lib/v2/common"
 
-	tss "github.com/voltix-vault/mobile-tss-lib/tss"
+	tss "github.com/vultisig/mobile-tss-lib/tss"
 )
 
 type ReshareInput struct {

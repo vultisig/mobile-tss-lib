@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli/v2"
 
-	"github.com/voltix-vault/mobile-tss-lib/tss"
+	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
 type LimitedValueFlag struct {

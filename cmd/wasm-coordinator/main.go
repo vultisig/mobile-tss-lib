@@ -5,7 +5,7 @@ import (
 	"strings"
 	"syscall/js"
 
-	coordinator "github.com/voltix-vault/mobile-tss-lib/coordinator"
+	coordinator "github.com/vultisig/mobile-tss-lib/coordinator"
 )
 
 func main() {
