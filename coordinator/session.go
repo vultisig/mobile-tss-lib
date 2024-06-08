@@ -193,7 +193,7 @@ func (m *MessengerImp) Send(from, to, body string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusAccepted {
-		return fmt.Errorf("fail to send message: %s", resp.Status)
+		return fmt.Errorf("fail to send message: %d", resp.StatusCode)
 	}
 
 	fmt.Println("message sent")
