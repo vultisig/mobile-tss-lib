@@ -2,6 +2,8 @@ package coordinator
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -81,9 +83,30 @@ func downloadMessage(server, session, key string, tssServerImp tss.Service, endC
 				if message.From == key {
 					continue
 				}
+
+				hash := md5.Sum([]byte(message.Body))
+				hashStr := hex.EncodeToString(hash[:])
+
+				client := http.Client{}
+				req, err := http.NewRequest(http.MethodDelete, server+"/message/"+session+"/"+key+"/"+hashStr, nil)
+				if err != nil {
+					log.Println("fail to delete message:", err)
+					continue
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					log.Println("fail to delete message:", err)
+					continue
+				}
+				if resp.StatusCode != http.StatusOK {
+					log.Println("fail to delete message:", resp.Status)
+					continue
+				}
+
 				if err := tssServerImp.ApplyData(message.Body); err != nil {
 					log.Println("fail to apply data:", err)
 				}
+
 			}
 		}
 	}
@@ -126,28 +149,54 @@ type MessengerImp struct {
 }
 
 func (m *MessengerImp) Send(from, to, body string) error {
+	hash := md5.New()
+	hash.Write([]byte(body))
+	hashStr := hex.EncodeToString(hash.Sum(nil))
+
+	if hashStr == "" {
+		return fmt.Errorf("hash is empty")
+	}
+
 	buf, err := json.MarshalIndent(struct {
 		SessionID string   `json:"session_id,omitempty"`
 		From      string   `json:"from,omitempty"`
 		To        []string `json:"to,omitempty"`
 		Body      string   `json:"body,omitempty"`
+		Hash      string   `json:"hash,omitempty"`
 	}{
 		SessionID: m.SessionID,
 		From:      from,
 		To:        []string{to},
 		Body:      body,
+		Hash:      hashStr,
 	}, "", "  ")
 	if err != nil {
 		return fmt.Errorf("fail to marshal message: %w", err)
 	}
-	log.Println("sending message:", string(buf))
-	resp, err := http.Post(m.Server+"/message/"+m.SessionID, "application/json", bytes.NewReader(buf))
+
+	url := fmt.Sprintf("%s/message/%s", m.Server, m.SessionID)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(buf))
 	if err != nil {
-		return fmt.Errorf("fail to send message: %w", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
-	if resp.StatusCode != http.StatusCreated {
+
+	if body == "" {
+		return fmt.Errorf("body is empty")
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("fail to send message: %s", resp.Status)
 	}
+
+	fmt.Println("message sent")
 
 	return nil
 }

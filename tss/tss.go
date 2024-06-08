@@ -101,12 +101,13 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.S256()
 	totalPartiesCount := len(req.GetAllParties())
-	threshod, err := GetThreshold(totalPartiesCount)
 
+	threshold, err := GetThreshold(totalPartiesCount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
-	params := tss.NewParameters(curve, ctx, localPartyID, totalPartiesCount, threshod)
+
+	params := tss.NewParameters(curve, ctx, localPartyID, totalPartiesCount, threshold)
 	outCh := make(chan tss.Message, totalPartiesCount*2)                   // message channel
 	endCh := make(chan *ecdsaKeygen.LocalPartySaveData, totalPartiesCount) // result channel
 	localState := &LocalState{
@@ -124,6 +125,7 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 			close(errChan)
 		}
 	}()
+
 	pubKey, err := s.processKeygen(localPartyECDSA, errChan, outCh, endCh, nil, localState, partyIDs)
 	if err != nil {
 		log.Println("failed to process keygen", "error", err)
@@ -159,7 +161,8 @@ func (s *ServiceImpl) applyMessageToTssInstance(localParty tss.Party, msg string
 
 	return "", nil
 }
-func (s *ServiceImpl) processKeygen(localParty tss.Party,
+func (s *ServiceImpl) processKeygen(
+	localParty tss.Party,
 	errCh <-chan struct{},
 	outCh <-chan tss.Message,
 	ecdsaEndCh <-chan *ecdsaKeygen.LocalPartySaveData,
@@ -377,7 +380,9 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 		RecoveryID:   hex.EncodeToString(sig.SignatureRecovery),
 	}, nil
 }
-func (s *ServiceImpl) processKeySign(localParty tss.Party,
+
+func (s *ServiceImpl) processKeySign(
+	localParty tss.Party,
 	errCh <-chan struct{},
 	outCh <-chan tss.Message,
 	endCh <-chan *common.SignatureData,
@@ -433,6 +438,7 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 	}
 
 }
+
 func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error) {
 	if err := s.validateKeysignRequest(req); err != nil {
 		return nil, err

@@ -72,9 +72,12 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
+	log.Println("Registered session for " + input.Key)
+
 	if err := waitAllParties(input.Parties, input.Server, input.Session); err != nil {
 		return "", fmt.Errorf("fail to wait all parties: %w", err)
 	}
+	log.Println("All parties have joined the session for " + input.Key)
 	messenger := &MessengerImp{
 		Server:    input.Server,
 		SessionID: input.Session,

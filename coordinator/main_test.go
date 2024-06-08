@@ -142,10 +142,19 @@ func TestExecuteKeySigning(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			fmt.Println("Joining signing party as", partyConfig.Key)
-			err := PerformECDSAKeySigning(partyConfig)
+			resp, err := ExecuteECDSAKeySigning(SignInput{
+				Server:     partyConfig.Server,
+				Session:    partyConfig.Session,
+				Parties:    partyConfig.Parties,
+				ChainCode:  partyConfig.ChainCode,
+				DerivePath: partyConfig.DerivePath,
+				Message:    partyConfig.Message,
+				KeyFolder:  partyConfig.KeyFolder,
+			})
 			if err != nil {
 				t.Errorf("Execution for %s failed with %q", partyConfig.Key, err)
 			}
+			fmt.Println("Signature:", resp)
 		}()
 	}
 
