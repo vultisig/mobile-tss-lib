@@ -1,7 +1,6 @@
 package coordinator
 
 import (
-	"fmt"
 	"math/big"
 )
 
@@ -22,7 +21,6 @@ func fillBytes(x *big.Int, buf []byte) []byte {
 }
 
 func equalUnordered(a, b []string) bool {
-	fmt.Println("a:", a, "b:", b)
 	if len(a) != len(b) {
 		return false
 	}

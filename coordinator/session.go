@@ -196,8 +196,7 @@ func (m *MessengerImp) Send(from, to, body string) error {
 		return fmt.Errorf("fail to send message: %s", resp.Status)
 	}
 
-	log.Println("response status:", resp.Status)
-	log.Println("hashStr for party", from, "to party", to, "is", hashStr)
+	fmt.Println("message sent")
 
 	return nil
 }

@@ -116,24 +116,17 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 		ChainCodeHex:        req.ChainCodeHex, // ChainCode will be used later for ECDSA key derivation
 	}
 	errChan := make(chan struct{})
-	fmt.Println("creating local party for keygen: ", req.LocalPartyID)
-	fmt.Println("parmas for local party: ", params.PartyID())
 	localPartyECDSA := ecdsaKeygen.NewLocalParty(params, outCh, endCh, *s.preParams)
-	fmt.Println(params.PartyID().Id, "local party created for keygen: ", req.LocalPartyID)
 
 	go func() {
-		fmt.Println("!starting keygen for local party: ", req.LocalPartyID)
 		tErr := localPartyECDSA.Start()
-		fmt.Println("!keygen started for local party: ", req.LocalPartyID)
 		if tErr != nil {
 			log.Println("failed to start keygen process", "error", tErr)
 			close(errChan)
 		}
 	}()
-	fmt.Println("processing keygen for local party: ", req.LocalPartyID)
 
 	pubKey, err := s.processKeygen(localPartyECDSA, errChan, outCh, endCh, nil, localState, partyIDs)
-	fmt.Println("keygen fully completed for local party: ", req.LocalPartyID)
 	if err != nil {
 		log.Println("failed to process keygen", "error", err)
 		return nil, err
@@ -165,8 +158,6 @@ func (s *ServiceImpl) applyMessageToTssInstance(localParty tss.Party, msg string
 	if errUpdate != nil {
 		return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
 	}
-
-	// Maybe request to delete message to mark it as read here
 
 	return "", nil
 }
@@ -202,7 +193,6 @@ func (s *ServiceImpl) processKeygen(
 				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
 			}
 			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			fmt.Println(r)
 			if r.IsBroadcast || r.To == nil {
 				for _, item := range localState.KeygenCommitteeKeys {
 					// don't send message to itself
