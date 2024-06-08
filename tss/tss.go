@@ -101,12 +101,13 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 	ctx := tss.NewPeerContext(partyIDs)
 	curve := tss.S256()
 	totalPartiesCount := len(req.GetAllParties())
-	threshod, err := GetThreshold(totalPartiesCount)
 
+	threshold, err := GetThreshold(totalPartiesCount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get threshold: %w", err)
 	}
-	params := tss.NewParameters(curve, ctx, localPartyID, totalPartiesCount, threshod)
+
+	params := tss.NewParameters(curve, ctx, localPartyID, totalPartiesCount, threshold)
 	outCh := make(chan tss.Message, totalPartiesCount*2)                   // message channel
 	endCh := make(chan *ecdsaKeygen.LocalPartySaveData, totalPartiesCount) // result channel
 	localState := &LocalState{
@@ -115,16 +116,24 @@ func (s *ServiceImpl) KeygenECDSA(req *KeygenRequest) (*KeygenResponse, error) {
 		ChainCodeHex:        req.ChainCodeHex, // ChainCode will be used later for ECDSA key derivation
 	}
 	errChan := make(chan struct{})
+	fmt.Println("creating local party for keygen: ", req.LocalPartyID)
+	fmt.Println("parmas for local party: ", params.PartyID())
 	localPartyECDSA := ecdsaKeygen.NewLocalParty(params, outCh, endCh, *s.preParams)
+	fmt.Println(params.PartyID().Id, "local party created for keygen: ", req.LocalPartyID)
 
 	go func() {
+		fmt.Println("!starting keygen for local party: ", req.LocalPartyID)
 		tErr := localPartyECDSA.Start()
+		fmt.Println("!keygen started for local party: ", req.LocalPartyID)
 		if tErr != nil {
 			log.Println("failed to start keygen process", "error", tErr)
 			close(errChan)
 		}
 	}()
+	fmt.Println("processing keygen for local party: ", req.LocalPartyID)
+
 	pubKey, err := s.processKeygen(localPartyECDSA, errChan, outCh, endCh, nil, localState, partyIDs)
+	fmt.Println("keygen fully completed for local party: ", req.LocalPartyID)
 	if err != nil {
 		log.Println("failed to process keygen", "error", err)
 		return nil, err
@@ -157,22 +166,28 @@ func (s *ServiceImpl) applyMessageToTssInstance(localParty tss.Party, msg string
 		return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
 	}
 
+	// Maybe request to delete message to mark it as read here
+
 	return "", nil
 }
-func (s *ServiceImpl) processKeygen(localParty tss.Party,
+func (s *ServiceImpl) processKeygen(
+	localParty tss.Party,
 	errCh <-chan struct{},
 	outCh <-chan tss.Message,
 	ecdsaEndCh <-chan *ecdsaKeygen.LocalPartySaveData,
 	eddsaEndCh <-chan *eddsaKeygen.LocalPartySaveData,
 	localState *LocalState,
-	sortedPartyIds tss.SortedPartyIDs) (string, error) {
+	sortedPartyIds tss.SortedPartyIDs,
+) (string, error) {
 
 	for {
 		// wait for result
 		select {
 		case <-errCh: // fail to start keygen process , exit immediately
+			fmt.Println("processKeygen: error channel received")
 			return "", errors.New("failed to start keygen process")
 		case outMsg := <-outCh:
+			log.Println("processKeygen: out channel received")
 			// pass the message to messenger
 			msgData, r, err := outMsg.WireBytes()
 			if err != nil {
@@ -187,6 +202,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
 			}
 			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
+			fmt.Println(r)
 			if r.IsBroadcast || r.To == nil {
 				for _, item := range localState.KeygenCommitteeKeys {
 					// don't send message to itself
@@ -196,8 +212,10 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 					if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to broadcast message to peer, error: %w", err)
 					}
+					fmt.Println("broadcast message to peer: ", item)
 				}
 			} else {
+				fmt.Println("Sending message to peers: ", r.To)
 				for _, item := range r.To {
 					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
 						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
@@ -205,12 +223,15 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 				}
 			}
 		case msg := <-s.inboundMessageCh:
+			log.Println("processKeyGen: inbound message channel received")
 			// apply the message to the tss instance
 			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
 				return "", fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 			}
+			fmt.Println("applied message to tss instance")
 
 		case saveData := <-ecdsaEndCh:
+			log.Println("processKeyGen: ecdsa end channel received, keysign finished")
 			pubKey, err := GetHexEncodedPubKey(saveData.ECDSAPub)
 			if err != nil {
 				return "", fmt.Errorf("failed to get hex encoded ecdsa pub key, error: %w", err)
@@ -223,6 +244,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 
 			return pubKey, nil
 		case saveData := <-eddsaEndCh:
+			log.Println("processKeyGen: eddsa end channel received, keysign finished")
 			pubKey, err := GetHexEncodedPubKey(saveData.EDDSAPub)
 			if err != nil {
 				return "", fmt.Errorf("failed to get hex encoded eddsa pub key, error: %w", err)
@@ -234,6 +256,7 @@ func (s *ServiceImpl) processKeygen(localParty tss.Party,
 			}
 			return pubKey, nil
 		case <-time.After(2 * time.Minute):
+			log.Println("processKeyGen: timeout after two minutes")
 			return "", errors.New("keygen timeout, keygen didn't finish in 2 minutes")
 		}
 	}
@@ -377,6 +400,7 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 		RecoveryID:   hex.EncodeToString(sig.SignatureRecovery),
 	}, nil
 }
+
 func (s *ServiceImpl) processKeySign(localParty tss.Party,
 	errCh <-chan struct{},
 	outCh <-chan tss.Message,
@@ -385,8 +409,10 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 	for {
 		select {
 		case <-errCh:
+			log.Println("processKeySign: error channel received")
 			return nil, errors.New("failed to start keysign process")
 		case msg := <-outCh:
+			log.Println("processKeySign: out channel received")
 			msgData, r, err := msg.WireBytes()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get wire bytes, error: %w", err)
@@ -399,8 +425,7 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal message to json, error: %w", err)
 			}
-			// for debug
-			log.Println("send message to peer", "message", string(jsonBytes))
+			log.Println("Sending message to peers, message:", string(jsonBytes))
 			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
 			if r.IsBroadcast {
 				for _, item := range sortedPartyIds {
@@ -421,18 +446,21 @@ func (s *ServiceImpl) processKeySign(localParty tss.Party,
 				}
 			}
 		case msg := <-s.inboundMessageCh:
+			log.Println("processKeySign: inbound message channel received")
 			// apply the message to the tss instance
 			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
 				return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 			}
 		case sig := <-endCh: // finished keysign successfully
+			log.Println("processKeySign: end channel received, keysign finished")
 			return sig, nil
 		case <-time.After(time.Minute):
+			log.Println("processKeySign: timeout after one minute")
 			return nil, fmt.Errorf("fail to finish keysign after one minute")
 		}
 	}
-
 }
+
 func (s *ServiceImpl) KeysignEdDSA(req *KeysignRequest) (*KeysignResponse, error) {
 	if err := s.validateKeysignRequest(req); err != nil {
 		return nil, err
