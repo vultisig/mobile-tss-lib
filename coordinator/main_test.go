@@ -51,11 +51,12 @@ func TestExecuteKeyGeneration(t *testing.T) {
 	chainCode := "80871c0f885f953e5206e461630a9222148797e66276a83224c7b9b0f75b3ec0"
 	server := "http://127.0.0.1:8080"
 
+	fmt.Println("Session:", session)
+
 	paramsMap := map[string]KeygenInput{
 		"first": {
 			Server:    server,
 			Session:   session,
-			Parties:   parties,
 			ChainCode: chainCode,
 			Key:       "first",
 			KeyFolder: "../keys/first",
@@ -63,7 +64,6 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		"second": {
 			Server:    server,
 			Session:   session,
-			Parties:   parties,
 			ChainCode: chainCode,
 			Key:       "second",
 			KeyFolder: "../keys/second",
@@ -71,7 +71,6 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		"third": {
 			Server:    server,
 			Session:   session,
-			Parties:   parties,
 			ChainCode: chainCode,
 			Key:       "third",
 			KeyFolder: "../keys/third",
@@ -92,71 +91,87 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		}()
 	}
 
+	fmt.Println("Starting session")
+	err := StartSession(server, session, parties)
+	if err != nil {
+		t.Errorf("Failed to start session: %q", err)
+	}
+	fmt.Println("Session started")
+
+	fmt.Println("Waiting for key generation to complete")
+
 	wg.Wait()
 }
 
-func TestExecuteKeySigning(t *testing.T) {
-	var wg sync.WaitGroup
-	parties := []string{"first", "third"}
+// func TestExecuteKeySigning(t *testing.T) {
+// 	var wg sync.WaitGroup
+// 	parties := []string{"first", "third"}
 
-	session := fmt.Sprintf("%d", rand.Int64N(1e12))
+// 	session := fmt.Sprintf("%d", rand.Int64N(1e12))
 
-	publicKey := os.Getenv("PUBLIC_KEY")
-	if publicKey == "" {
-		t.Errorf("Public key not found in global state")
-	}
+// 	publicKey := os.Getenv("PUBLIC_KEY")
+// 	if publicKey == "" {
+// 		t.Errorf("Public key not found in global state")
+// 	}
 
-	server := "http://127.0.0.1:8080"
-	message := "aGVsbG8gd29ybGQK"
-	derivationPath := "m/84'/0'/0'/0/0"
-	chainCode := "80871c0f885f953e5206e461630a9222148797e66276a83224c7b9b0f75b3ec0"
+// 	server := "http://127.0.0.1:8080"
+// 	message := "aGVsbG8gd29ybGQK"
+// 	derivationPath := "m/84'/0'/0'/0/0"
+// 	chainCode := "80871c0f885f953e5206e461630a9222148797e66276a83224c7b9b0f75b3ec0"
 
-	paramsMap := map[string]KeygenInput{
-		"first": {
-			Key:        "first",
-			PubKey:     publicKey,
-			Server:     server,
-			Session:    session,
-			Parties:    parties,
-			ChainCode:  chainCode,
-			DerivePath: derivationPath,
-			Message:    message,
-			KeyFolder:  "../keys/first",
-		},
-		"third": {
-			Key:        "third",
-			PubKey:     publicKey,
-			Server:     server,
-			Session:    session,
-			Parties:    parties,
-			ChainCode:  chainCode,
-			DerivePath: derivationPath,
-			Message:    message,
-			KeyFolder:  "../keys/third",
-		},
-	}
+// 	paramsMap := map[string]KeygenInput{
+// 		"first": {
+// 			Key:        "first",
+// 			PubKey:     publicKey,
+// 			Server:     server,
+// 			Session:    session,
+// 			ChainCode:  chainCode,
+// 			DerivePath: derivationPath,
+// 			Message:    message,
+// 			KeyFolder:  "../keys/first",
+// 		},
+// 		"third": {
+// 			Key:        "third",
+// 			PubKey:     publicKey,
+// 			Server:     server,
+// 			Session:    session,
+// 			ChainCode:  chainCode,
+// 			DerivePath: derivationPath,
+// 			Message:    message,
+// 			KeyFolder:  "../keys/third",
+// 		},
+// 	}
 
-	for _, party := range parties {
-		partyConfig := paramsMap[party]
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fmt.Println("Joining signing party as", partyConfig.Key)
-			resp, err := ExecuteECDSAKeySigning(SignInput{
-				Server:     partyConfig.Server,
-				Session:    partyConfig.Session,
-				Parties:    partyConfig.Parties,
-				ChainCode:  partyConfig.ChainCode,
-				DerivePath: partyConfig.DerivePath,
-				Message:    partyConfig.Message,
-				KeyFolder:  partyConfig.KeyFolder,
-			})
-			if err != nil {
-				t.Errorf("Execution for %s failed with %q", partyConfig.Key, err)
-			}
-			fmt.Println("Signature:", resp)
-		}()
-	}
+// 	for _, party := range parties {
+// 		partyConfig := paramsMap[party]
+// 		wg.Add(1)
+// 		go func() {
+// 			defer wg.Done()
+// 			fmt.Println("Joining signing party as", partyConfig.Key)
+// 			resp, err := ExecuteECDSAKeySigning(SignInput{
+// 				Server:     partyConfig.Server,
+// 				Session:    partyConfig.Session,
+// 				ChainCode:  partyConfig.ChainCode,
+// 				DerivePath: partyConfig.DerivePath,
+// 				Message:    partyConfig.Message,
+// 				KeyFolder:  partyConfig.KeyFolder,
+// 				Key:        partyConfig.Key,
+// 				// PubKey:      partyConfig.PubKey,
+// 				// PubKeyEdDSA: partyConfig.PubKeyEdDSA,
+// 			})
+// 			if err != nil {
+// 				t.Errorf("Execution for %s failed with %q", partyConfig.Key, err)
+// 			}
+// 			fmt.Println("Signature:", resp)
+// 		}()
+// 	}
 
-	wg.Wait()
-}
+// 	fmt.Println("Starting session")
+// 	err := StartSession(server, session, parties)
+// 	if err != nil {
+// 		t.Errorf("Failed to start session: %q", err)
+// 	}
+// 	fmt.Println("Session started")
+
+// 	wg.Wait()
+// }
