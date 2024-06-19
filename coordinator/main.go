@@ -66,7 +66,7 @@ func GenerateRandomChainCodeHex() (string, error) {
 // Orchestrates TSS keygen process for ECDSA & EdDSA
 // including session management and message handling
 func ExecuteKeyGeneration(input KeygenInput) (string, error) {
-	if err := RegisterSession(input.Server, input.Session, input.Key); err != nil {
+	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
 	log.Println("Registered session for " + input.Key)
@@ -83,8 +83,8 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 		SessionID: input.Session,
 	}
 	localStateAccessor := &LocalStateAccessorImp{
-		Key:    input.Key,
-		Folder: input.KeyFolder,
+		key:    input.Key,
+		folder: input.KeyFolder,
 	}
 	tssServerImp, err := tss.NewService(messenger, localStateAccessor, true)
 	if err != nil {
@@ -128,7 +128,7 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 // Manages the key resharing process for ECDSA & EdDSA
 // ensures all parties are synced and sessions are properly handled
 func ExecuteKeyResharing(input ReshareInput) (string, error) {
-	if err := RegisterSession(input.Server, input.Session, input.Key); err != nil {
+	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
 
@@ -143,8 +143,8 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 		SessionID: input.Session,
 	}
 	localStateAccessor := &LocalStateAccessorImp{
-		Key:    input.Key,
-		Folder: input.KeyFolder,
+		key:    input.Key,
+		folder: input.KeyFolder,
 	}
 	tssServerImp, err := tss.NewService(messenger, localStateAccessor, true)
 	if err != nil {
@@ -193,7 +193,7 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 // Coordinates ECDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
 func ExecuteECDSAKeySigning(input SignInput) (string, error) {
-	if err := RegisterSession(input.Server, input.Session, input.Key); err != nil {
+	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
 
@@ -208,8 +208,8 @@ func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 		SessionID: input.Session,
 	}
 	localStateAccessor := &LocalStateAccessorImp{
-		Key:    input.Key,
-		Folder: input.KeyFolder,
+		key:    input.Key,
+		folder: input.KeyFolder,
 	}
 	tssServerImp, err := tss.NewService(messenger, localStateAccessor, false)
 	if err != nil {
@@ -258,7 +258,7 @@ func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 // Coordinates EdDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
 func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
-	if err := RegisterSession(input.Server, input.Session, input.Key); err != nil {
+	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
 
@@ -273,8 +273,8 @@ func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 		SessionID: input.Session,
 	}
 	localStateAccessor := &LocalStateAccessorImp{
-		Key:    input.Key,
-		Folder: input.KeyFolder,
+		key:    input.Key,
+		folder: input.KeyFolder,
 	}
 	tssServerImp, err := tss.NewService(messenger, localStateAccessor, false)
 	if err != nil {

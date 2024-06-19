@@ -15,7 +15,7 @@ import (
 	"github.com/vultisig/mobile-tss-lib/tss"
 )
 
-func RegisterSession(server, session, key string) error {
+func registerSession(server, session, key string) error {
 	sessionUrl := server + "/" + session
 	fmt.Println("Registering session with url: ", sessionUrl)
 	body := []byte("[\"" + key + "\"]")
