@@ -51,8 +51,6 @@ func TestExecuteKeyGeneration(t *testing.T) {
 	chainCode := "80871c0f885f953e5206e461630a9222148797e66276a83224c7b9b0f75b3ec0"
 	server := "http://127.0.0.1:8080"
 
-	fmt.Println("Session:", session)
-
 	paramsMap := map[string]KeygenInput{
 		"first": {
 			Server:    server,

@@ -36,7 +36,6 @@ func registerSession(server, session, key string) error {
 
 func startSession(server string, session string, parties []string) error {
 	sessionUrl := server + "/start/" + session
-	// fmt.Println(sessionUrl)
 
 	body, err := json.Marshal(parties)
 	if err != nil {
@@ -171,7 +170,7 @@ func waitAllParties(parties []string, server, session string) error {
 
 func waitForSessionStart(server, session string) ([]string, error) {
 	sessionUrl := server + "/start/" + session
-	// fmt.Println(sessionUrl)
+
 	for {
 		fmt.Println("start waiting for someone to start session...")
 		resp, err := http.Get(sessionUrl)
@@ -188,12 +187,6 @@ func waitForSessionStart(server, session string) ([]string, error) {
 		}
 		if err := json.Unmarshal(buff, &parties); err != nil {
 			return nil, fmt.Errorf("fail to unmarshal session body: %w", err)
-		}
-		// print parties
-		fmt.Println("parties:", parties)
-		if len(parties) > 1 {
-			fmt.Println("all parties joined")
-			return parties, nil
 		}
 
 		fmt.Println("waiting for someone to start session...")
