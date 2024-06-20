@@ -157,8 +157,7 @@ func TestExecuteKeySigning(t *testing.T) {
 				Message:    partyConfig.Message,
 				KeyFolder:  partyConfig.KeyFolder,
 				Key:        partyConfig.Key,
-				// PubKey:      partyConfig.PubKey,
-				// PubKeyEdDSA: partyConfig.PubKeyEdDSA,
+				PubKey:     partyConfig.PubKey,
 			})
 			if err != nil {
 				t.Errorf("Execution for %s failed with %q", partyConfig.Key, err)
