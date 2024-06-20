@@ -58,7 +58,7 @@ func GenerateRandomChainCodeHex() (string, error) {
 	chainCode := make([]byte, 32)
 	max32b := new(big.Int).Lsh(new(big.Int).SetUint64(1), 256)
 	max32b = new(big.Int).Sub(max32b, new(big.Int).SetUint64(1))
-	FillBytes(common.GetRandomPositiveInt(rand.Reader, max32b), chainCode)
+	fillBytes(common.GetRandomPositiveInt(rand.Reader, max32b), chainCode)
 	encodedChainCode := hex.EncodeToString(chainCode)
 	return encodedChainCode, nil
 }
@@ -73,7 +73,7 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 
 	var partiesJoined []string
 	var err error
-	if partiesJoined, err = WaitForSessionStart(input.Server, input.Session); err != nil {
+	if partiesJoined, err = waitForSessionStart(input.Server, input.Session); err != nil {
 		return "", fmt.Errorf("fail to wait for session start: %w", err)
 	}
 	log.Println("All parties have joined the session for " + input.Key)
@@ -94,7 +94,7 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go DownloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
+	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
 	log.Println("start ECDSA keygen...")
 	resp, err := tssServerImp.KeygenECDSA(&tss.KeygenRequest{
 		LocalPartyID: input.Key,
@@ -117,7 +117,7 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	}
 	log.Printf("EDDSA keygen response: %+v\n", respEDDSA)
 	time.Sleep(time.Second)
-	if err := EndSession(input.Server, input.Session); err != nil {
+	if err := endSession(input.Server, input.Session); err != nil {
 		log.Printf("fail to end session: %s\n", err)
 	}
 	close(endCh)
@@ -134,7 +134,7 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 
 	var partiesJoined []string
 	var err error
-	if partiesJoined, err = WaitForSessionStart(input.Server, input.Session); err != nil {
+	if partiesJoined, err = waitForSessionStart(input.Server, input.Session); err != nil {
 		return "", fmt.Errorf("fail to wait for session start: %w", err)
 	}
 
@@ -153,7 +153,7 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go DownloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
+	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
 	log.Println("start ECDSA key resharing...")
 	resp, err := tssServerImp.ReshareECDSA(&tss.ReshareRequest{
 		PubKey:        input.PubKey,
@@ -182,7 +182,7 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 	}
 	log.Printf("EDDSA keygen response: %+v\n", respEDDSA)
 	time.Sleep(time.Second)
-	if err := EndSession(input.Server, input.Session); err != nil {
+	if err := endSession(input.Server, input.Session); err != nil {
 		log.Printf("fail to end session: %s\n", err)
 	}
 	close(endCh)
@@ -199,7 +199,7 @@ func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 
 	var partiesJoined []string
 	var err error
-	if partiesJoined, err = WaitForSessionStart(input.Server, input.Session); err != nil {
+	if partiesJoined, err = waitForSessionStart(input.Server, input.Session); err != nil {
 		return "", fmt.Errorf("fail to wait for session start: %w", err)
 	}
 
@@ -218,7 +218,7 @@ func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go DownloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
+	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
 	resp, err := tssServerImp.KeysignECDSA(&tss.KeysignRequest{
 		PubKey:               input.PubKey,
 		MessageToSign:        input.Message,
@@ -247,7 +247,7 @@ func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 	log.Printf("ECDSA keysign response: %+v\n", resp)
 	// delay one second before clean up the session
 	time.Sleep(time.Second)
-	if err := EndSession(input.Server, input.Session); err != nil {
+	if err := endSession(input.Server, input.Session); err != nil {
 		log.Printf("fail to end session: %s\n", err)
 	}
 	close(endCh)
@@ -264,7 +264,7 @@ func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 
 	var partiesJoined []string
 	var err error
-	if partiesJoined, err = WaitForSessionStart(input.Server, input.Session); err != nil {
+	if partiesJoined, err = waitForSessionStart(input.Server, input.Session); err != nil {
 		return "", fmt.Errorf("fail to wait for session start: %w", err)
 	}
 
@@ -283,7 +283,7 @@ func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go DownloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
+	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
 	log.Println("start EDDSA keysign...")
 	resp, err := tssServerImp.KeysignEdDSA(&tss.KeysignRequest{
 		PubKey:               input.PubKey,
@@ -309,7 +309,7 @@ func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 
 	// delay one second before clean up the session
 	time.Sleep(time.Second)
-	if err := EndSession(input.Server, input.Session); err != nil {
+	if err := endSession(input.Server, input.Session); err != nil {
 		log.Printf("fail to end session: %s\n", err)
 	}
 	close(endCh)

@@ -4,7 +4,7 @@ import (
 	"math/big"
 )
 
-func FillBytes(x *big.Int, buf []byte) []byte {
+func fillBytes(x *big.Int, buf []byte) []byte {
 	b := x.Bytes()
 	if len(b) > len(buf) {
 		panic("buffer too small")
@@ -20,7 +20,7 @@ func FillBytes(x *big.Int, buf []byte) []byte {
 	return buf
 }
 
-func EqualUnordered(a, b []string) bool {
+func equalUnordered(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}

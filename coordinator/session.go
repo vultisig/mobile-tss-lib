@@ -34,7 +34,7 @@ func registerSession(server, session, key string) error {
 	return nil
 }
 
-func StartSession(server string, session string, parties []string) error {
+func startSession(server string, session string, parties []string) error {
 	sessionUrl := server + "/start/" + session
 	// fmt.Println(sessionUrl)
 
@@ -59,7 +59,7 @@ func StartSession(server string, session string, parties []string) error {
 	return nil
 }
 
-func EndSession(server, session string) error {
+func endSession(server, session string) error {
 	sessionUrl := server + "/" + session
 	client := http.Client{}
 	req, err := http.NewRequest(http.MethodDelete, sessionUrl, nil)
@@ -76,7 +76,7 @@ func EndSession(server, session string) error {
 	return nil
 }
 
-func DownloadMessage(server, session, key string, tssServerImp tss.Service, endCh chan struct{}, wg *sync.WaitGroup) {
+func downloadMessage(server, session, key string, tssServerImp tss.Service, endCh chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
@@ -138,7 +138,7 @@ func DownloadMessage(server, session, key string, tssServerImp tss.Service, endC
 	}
 }
 
-func WaitAllParties(parties []string, server, session string) error {
+func waitAllParties(parties []string, server, session string) error {
 	sessionUrl := server + "/" + session
 	for {
 		fmt.Println("start waiting for all parties to join...")
@@ -157,7 +157,7 @@ func WaitAllParties(parties []string, server, session string) error {
 		if err := json.Unmarshal(buff, &keys); err != nil {
 			return fmt.Errorf("fail to unmarshal session body: %w", err)
 		}
-		if EqualUnordered(keys, parties) {
+		if equalUnordered(keys, parties) {
 			fmt.Println("all parties joined")
 			return nil
 		}
@@ -169,7 +169,7 @@ func WaitAllParties(parties []string, server, session string) error {
 	}
 }
 
-func WaitForSessionStart(server, session string) ([]string, error) {
+func waitForSessionStart(server, session string) ([]string, error) {
 	sessionUrl := server + "/start/" + session
 	// fmt.Println(sessionUrl)
 	for {
