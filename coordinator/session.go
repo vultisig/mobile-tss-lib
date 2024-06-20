@@ -189,6 +189,11 @@ func waitForSessionStart(server, session string) ([]string, error) {
 			return nil, fmt.Errorf("fail to unmarshal session body: %w", err)
 		}
 
+		if len(parties) > 0 {
+			fmt.Println("someone started session")
+			return parties, nil
+		}
+
 		fmt.Println("waiting for someone to start session...")
 
 		// backoff

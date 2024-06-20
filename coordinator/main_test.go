@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func CleanTestingKeys() error {
@@ -89,6 +90,8 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		}()
 	}
 
+	time.Sleep(3 * time.Second)
+
 	fmt.Println("Starting session")
 	err := startSession(server, session, parties)
 	if err != nil {
@@ -163,6 +166,8 @@ func TestExecuteKeySigning(t *testing.T) {
 			fmt.Println("Signature:", resp)
 		}()
 	}
+
+	time.Sleep(3 * time.Second)
 
 	fmt.Println("Starting session")
 	err := startSession(server, session, parties)
