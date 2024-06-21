@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func CleanTestingKeys() error {
@@ -55,7 +56,6 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		"first": {
 			Server:    server,
 			Session:   session,
-			Parties:   parties,
 			ChainCode: chainCode,
 			Key:       "first",
 			KeyFolder: "../keys/first",
@@ -63,7 +63,6 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		"second": {
 			Server:    server,
 			Session:   session,
-			Parties:   parties,
 			ChainCode: chainCode,
 			Key:       "second",
 			KeyFolder: "../keys/second",
@@ -71,7 +70,6 @@ func TestExecuteKeyGeneration(t *testing.T) {
 		"third": {
 			Server:    server,
 			Session:   session,
-			Parties:   parties,
 			ChainCode: chainCode,
 			Key:       "third",
 			KeyFolder: "../keys/third",
@@ -91,6 +89,17 @@ func TestExecuteKeyGeneration(t *testing.T) {
 			os.Setenv("PUBLIC_KEY", publicKey)
 		}()
 	}
+
+	time.Sleep(3 * time.Second)
+
+	fmt.Println("Starting session")
+	err := startSession(server, session, parties)
+	if err != nil {
+		t.Errorf("Failed to start session: %q", err)
+	}
+	fmt.Println("Session started")
+
+	fmt.Println("Waiting for key generation to complete")
 
 	wg.Wait()
 }
@@ -117,7 +126,6 @@ func TestExecuteKeySigning(t *testing.T) {
 			PubKey:     publicKey,
 			Server:     server,
 			Session:    session,
-			Parties:    parties,
 			ChainCode:  chainCode,
 			DerivePath: derivationPath,
 			Message:    message,
@@ -128,7 +136,6 @@ func TestExecuteKeySigning(t *testing.T) {
 			PubKey:     publicKey,
 			Server:     server,
 			Session:    session,
-			Parties:    parties,
 			ChainCode:  chainCode,
 			DerivePath: derivationPath,
 			Message:    message,
@@ -145,11 +152,12 @@ func TestExecuteKeySigning(t *testing.T) {
 			resp, err := ExecuteECDSAKeySigning(SignInput{
 				Server:     partyConfig.Server,
 				Session:    partyConfig.Session,
-				Parties:    partyConfig.Parties,
 				ChainCode:  partyConfig.ChainCode,
 				DerivePath: partyConfig.DerivePath,
 				Message:    partyConfig.Message,
 				KeyFolder:  partyConfig.KeyFolder,
+				Key:        partyConfig.Key,
+				PubKey:     partyConfig.PubKey,
 			})
 			if err != nil {
 				t.Errorf("Execution for %s failed with %q", partyConfig.Key, err)
@@ -157,6 +165,15 @@ func TestExecuteKeySigning(t *testing.T) {
 			fmt.Println("Signature:", resp)
 		}()
 	}
+
+	time.Sleep(3 * time.Second)
+
+	fmt.Println("Starting session")
+	err := startSession(server, session, parties)
+	if err != nil {
+		t.Errorf("Failed to start session: %q", err)
+	}
+	fmt.Println("Session started")
 
 	wg.Wait()
 }

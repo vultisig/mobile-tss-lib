@@ -17,18 +17,43 @@ import (
 
 func registerSession(server, session, key string) error {
 	sessionUrl := server + "/" + session
+	fmt.Println("Registering session with url: ", sessionUrl)
 	body := []byte("[\"" + key + "\"]")
+	fmt.Println("Registering session with body: ", string(body))
 	bodyReader := bytes.NewReader(body)
 
 	resp, err := http.Post(sessionUrl, "application/json", bodyReader)
-
-	fmt.Println(sessionUrl)
 
 	if err != nil {
 		return fmt.Errorf("fail to register session: %w", err)
 	}
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("fail to register session: %s", resp.Status)
+	}
+
+	return nil
+}
+
+func startSession(server string, session string, parties []string) error {
+	sessionUrl := server + "/start/" + session
+
+	body, err := json.Marshal(parties)
+	if err != nil {
+		return fmt.Errorf("fail to start session: %w", err)
+	}
+	bodyReader := bytes.NewReader(body)
+	client := http.Client{}
+	req, err := http.NewRequest(http.MethodPost, sessionUrl, bodyReader)
+	req.Header.Set("Content-Type", "application/json")
+	if err != nil {
+		return fmt.Errorf("fail to start session: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("fail to start session: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fail to start session: %s", resp.Status)
 	}
 	return nil
 }
@@ -143,6 +168,39 @@ func waitAllParties(parties []string, server, session string) error {
 	}
 }
 
+func waitForSessionStart(server, session string) ([]string, error) {
+	sessionUrl := server + "/start/" + session
+
+	for {
+		fmt.Println("start waiting for someone to start session...")
+		resp, err := http.Get(sessionUrl)
+		if err != nil {
+			return nil, fmt.Errorf("fail to get session: %w", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("fail to get session: %s", resp.Status)
+		}
+		var parties []string
+		buff, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("fail to read session body: %w", err)
+		}
+		if err := json.Unmarshal(buff, &parties); err != nil {
+			return nil, fmt.Errorf("fail to unmarshal session body: %w", err)
+		}
+
+		if len(parties) > 0 {
+			fmt.Println("someone started session")
+			return parties, nil
+		}
+
+		fmt.Println("waiting for someone to start session...")
+
+		// backoff
+		time.Sleep(2 * time.Second)
+	}
+}
+
 type MessengerImp struct {
 	Server    string
 	SessionID string
@@ -193,7 +251,7 @@ func (m *MessengerImp) Send(from, to, body string) error {
 	defer resp.Body.Close()
 
 	if resp.Status != "202 Accepted" {
-		return fmt.Errorf("fail to send message, response code is not 202 Accepted: %d", resp.Status)
+		return fmt.Errorf("fail to send message, response code is not 202 Accepted: %s", resp.Status)
 	}
 
 	fmt.Println("message sent")
