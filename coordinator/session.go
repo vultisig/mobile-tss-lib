@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -17,26 +16,20 @@ import (
 
 func registerSession(server, session, key string) error {
 	sessionUrl := server + "/" + session
-	fmt.Println("Registering session with url: ", sessionUrl)
 	body := []byte("[\"" + key + "\"]")
-	fmt.Println("Registering session with body: ", string(body))
 	bodyReader := bytes.NewReader(body)
-
 	resp, err := http.Post(sessionUrl, "application/json", bodyReader)
-
 	if err != nil {
 		return fmt.Errorf("fail to register session: %w", err)
 	}
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("fail to register session: %s", resp.Status)
 	}
-
 	return nil
 }
 
-func startSession(server string, session string, parties []string) error {
+func StartSession(server string, session string, parties []string) error {
 	sessionUrl := server + "/start/" + session
-
 	body, err := json.Marshal(parties)
 	if err != nil {
 		return fmt.Errorf("fail to start session: %w", err)
@@ -44,10 +37,10 @@ func startSession(server string, session string, parties []string) error {
 	bodyReader := bytes.NewReader(body)
 	client := http.Client{}
 	req, err := http.NewRequest(http.MethodPost, sessionUrl, bodyReader)
-	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		return fmt.Errorf("fail to start session: %w", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("fail to start session: %w", err)
@@ -84,11 +77,11 @@ func downloadMessage(server, session, key string, tssServerImp tss.Service, endC
 		case <-time.After(time.Second):
 			resp, err := http.Get(server + "/message/" + session + "/" + key)
 			if err != nil {
-				log.Println("fail to get data from server:", err)
+				log.Error("fail to get data from server", "error", err)
 				continue
 			}
 			if resp.StatusCode != http.StatusOK {
-				log.Println("fail to get data from server:", resp.Status)
+				log.Debug("fail to get data from server", "status", resp.Status)
 				continue
 			}
 			decoder := json.NewDecoder(resp.Body)
@@ -100,7 +93,7 @@ func downloadMessage(server, session, key string, tssServerImp tss.Service, endC
 			}
 			if err := decoder.Decode(&messages); err != nil {
 				if err != io.EOF {
-					log.Println("fail to decode messages:", err)
+					log.Error("fail to decode messages", "error", err)
 				}
 				continue
 			}
@@ -115,21 +108,21 @@ func downloadMessage(server, session, key string, tssServerImp tss.Service, endC
 				client := http.Client{}
 				req, err := http.NewRequest(http.MethodDelete, server+"/message/"+session+"/"+key+"/"+hashStr, nil)
 				if err != nil {
-					log.Println("fail to delete message:", err)
+					log.Error("fail to delete message", "error", err)
 					continue
 				}
 				resp, err := client.Do(req)
 				if err != nil {
-					log.Println("fail to delete message:", err)
+					log.Error("fail to delete message", "error", err)
 					continue
 				}
 				if resp.StatusCode != http.StatusOK {
-					log.Println("fail to delete message:", resp.Status)
+					log.Error("fail to delete message", "status", resp.Status)
 					continue
 				}
 
 				if err := tssServerImp.ApplyData(message.Body); err != nil {
-					log.Println("fail to apply data:", err)
+					log.Error("fail to apply data", "error", err)
 				}
 
 			}
@@ -137,10 +130,10 @@ func downloadMessage(server, session, key string, tssServerImp tss.Service, endC
 	}
 }
 
-func waitAllParties(parties []string, server, session string) error {
+func WaitAllParties(parties []string, server, session string) error {
 	sessionUrl := server + "/" + session
 	for {
-		fmt.Println("start waiting for all parties to join...")
+		log.Debug("start waiting for all parties to join...")
 		resp, err := http.Get(sessionUrl)
 		if err != nil {
 			return fmt.Errorf("fail to get session: %w", err)
@@ -157,11 +150,9 @@ func waitAllParties(parties []string, server, session string) error {
 			return fmt.Errorf("fail to unmarshal session body: %w", err)
 		}
 		if equalUnordered(keys, parties) {
-			fmt.Println("all parties joined")
+			log.Debug("all parties joined")
 			return nil
 		}
-
-		fmt.Println("waiting for all parties to join...")
 
 		// backoff
 		time.Sleep(2 * time.Second)
@@ -172,7 +163,6 @@ func waitForSessionStart(server, session string) ([]string, error) {
 	sessionUrl := server + "/start/" + session
 
 	for {
-		fmt.Println("start waiting for someone to start session...")
 		resp, err := http.Get(sessionUrl)
 		if err != nil {
 			return nil, fmt.Errorf("fail to get session: %w", err)
@@ -190,11 +180,8 @@ func waitForSessionStart(server, session string) ([]string, error) {
 		}
 
 		if len(parties) > 0 {
-			fmt.Println("someone started session")
 			return parties, nil
 		}
-
-		fmt.Println("waiting for someone to start session...")
 
 		// backoff
 		time.Sleep(2 * time.Second)
@@ -248,13 +235,15 @@ func (m *MessengerImp) Send(from, to, body string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Error("failed to close response body", "error", err)
+		}
+	}()
 
-	if resp.Status != "202 Accepted" {
+	if resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("fail to send message, response code is not 202 Accepted: %s", resp.Status)
 	}
-
-	fmt.Println("message sent")
-
+	log.Debug("message sent")
 	return nil
 }

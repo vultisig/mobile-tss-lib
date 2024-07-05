@@ -6,7 +6,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	coordinator "github.com/vultisig/mobile-tss-lib/coordinator"
+	"github.com/vultisig/mobile-tss-lib/coordinator"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 				Name:    "server",
 				Aliases: []string{"s"},
 				Usage:   "server address",
-				Value:   "http://127.0.0.1:8080",
+				Value:   "http://127.0.0.1:9090",
 			},
 			&cli.StringFlag{
 				Name:       "key",
@@ -42,6 +42,14 @@ func main() {
 				Required:   true,
 				HasBeenSet: false,
 				Hidden:     false,
+			},
+			&cli.BoolFlag{
+				Name:       "leader",
+				Usage:      "leader will make sure all parties present , and kick off the process(keygen/reshare/keysign)",
+				Required:   false,
+				Hidden:     false,
+				HasBeenSet: false,
+				Value:      false,
 			},
 		},
 		Commands: []*cli.Command{
@@ -102,10 +110,6 @@ func main() {
 				},
 				Action: reshareCmd,
 			},
-			// {
-			// 	Name:   "chaincode",
-			// 	Action: generateChainCode,
-			// },
 			{
 				Name: "signECDSA",
 				Flags: []cli.Flag{
@@ -169,12 +173,23 @@ func keygenCmd(c *cli.Context) error {
 	session := c.String("session")
 	server := c.String("server")
 	chaincode := c.String("chaincode")
-
+	isLeader := c.Bool("leader")
 	fmt.Println("keygen", key, parties, session, server, chaincode)
-
+	if isLeader {
+		fmt.Println("I am the leader , start to wait for all parties to join")
+		go func() {
+			if coordinator.WaitAllParties(parties, server, session) != nil {
+				fmt.Println("failed to wait for all parties to join")
+				return
+			}
+			fmt.Println("all parties joined")
+			if err := coordinator.StartSession(server, session, parties); err != nil {
+				fmt.Println("failed to start session", err)
+			}
+		}()
+	}
 	_, err := coordinator.ExecuteKeyGeneration(coordinator.KeygenInput{
 		Key:       key,
-		Parties:   parties,
 		Session:   session,
 		Server:    server,
 		ChainCode: chaincode,
@@ -183,13 +198,11 @@ func keygenCmd(c *cli.Context) error {
 		return err
 	}
 
-	// return json.NewEncoder(os.Stdout).Encode(keysign)
 	return nil
 }
 
 func reshareCmd(c *cli.Context) error {
 	key := c.String("key")
-	parties := c.StringSlice("parties")
 	session := c.String("session")
 	server := c.String("server")
 	chaincode := c.String("chaincode")
@@ -200,7 +213,6 @@ func reshareCmd(c *cli.Context) error {
 
 	_, err := coordinator.ExecuteKeyResharing(coordinator.ReshareInput{
 		Key:           key,
-		Parties:       parties,
 		Session:       session,
 		Server:        server,
 		ChainCode:     chaincode,
@@ -219,7 +231,6 @@ func reshareCmd(c *cli.Context) error {
 
 func keysignECDSACmd(c *cli.Context) error {
 	key := c.String("key")
-	parties := c.StringSlice("parties")
 	session := c.String("session")
 	server := c.String("server")
 	pubkey := c.String("pubkey")
@@ -228,7 +239,6 @@ func keysignECDSACmd(c *cli.Context) error {
 
 	_, err := coordinator.ExecuteECDSAKeySigning(coordinator.SignInput{
 		Key:        key,
-		Parties:    parties,
 		Session:    session,
 		Server:     server,
 		PubKey:     pubkey,
@@ -245,7 +255,6 @@ func keysignECDSACmd(c *cli.Context) error {
 
 func keysignEDDSACmd(c *cli.Context) error {
 	key := c.String("key")
-	parties := c.StringSlice("parties")
 	session := c.String("session")
 	server := c.String("server")
 	pubkey := c.String("pubkey")
@@ -253,7 +262,6 @@ func keysignEDDSACmd(c *cli.Context) error {
 
 	_, err := coordinator.ExecuteEdDSAKeySigning(coordinator.SignInput{
 		Key:     key,
-		Parties: parties,
 		Session: session,
 		Server:  server,
 		PubKey:  pubkey,

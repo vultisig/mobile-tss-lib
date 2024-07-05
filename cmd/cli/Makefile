@@ -12,7 +12,7 @@ all: keygen keysign reshare
 
 keygen:
 	trap 'kill $$PID_LIST' SIGINT; \
-	go run main.go --key first --parties first,second,third --session $(SESSION) keygen --chaincode $(CHAINCODE) & PID_LIST=$$!; \
+	go run main.go --key first --parties first,second,third --session $(SESSION) --leader keygen --chaincode $(CHAINCODE)  & PID_LIST=$$!; \
 	go run main.go --key second --parties first,second,third --session $(SESSION) keygen --chaincode $(CHAINCODE) & PID_LIST="$$PID_LIST $$!"; \
 	go run main.go --key third --parties first,second,third --session $(SESSION) keygen --chaincode $(CHAINCODE) & PID_LIST="$$PID_LIST $$!"; \
 	wait $$PID_LIST
