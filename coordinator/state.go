@@ -27,7 +27,6 @@ func (l *LocalStateAccessorImp) GetLocalState(pubKey string) (string, error) {
 		return "", err
 	}
 	fileName := filepath.Join(l.folder, pubKey+"-"+l.key+".json")
-	fmt.Println(fileName)
 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
 		return "", fmt.Errorf("file %s does not exist", fileName)
 	}
@@ -35,7 +34,6 @@ func (l *LocalStateAccessorImp) GetLocalState(pubKey string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("fail to read file %s: %w", fileName, err)
 	}
-	// fmt.Println(string(buf))
 	return string(buf), nil
 }
 

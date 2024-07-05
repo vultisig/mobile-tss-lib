@@ -93,7 +93,7 @@ func TestExecuteKeyGeneration(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	fmt.Println("Starting session")
-	err := startSession(server, session, parties)
+	err := StartSession(server, session, parties)
 	if err != nil {
 		t.Errorf("Failed to start session: %q", err)
 	}
@@ -169,7 +169,7 @@ func TestExecuteKeySigning(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	fmt.Println("Starting session")
-	err := startSession(server, session, parties)
+	err := StartSession(server, session, parties)
 	if err != nil {
 		t.Errorf("Failed to start session: %q", err)
 	}

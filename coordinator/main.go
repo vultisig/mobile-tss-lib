@@ -5,16 +5,19 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/bnb-chain/tss-lib/v2/common"
 
-	tss "github.com/vultisig/mobile-tss-lib/tss"
+	"github.com/vultisig/mobile-tss-lib/tss"
 )
+
+var log = slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 type ReshareInput struct {
 	Server        string
@@ -52,7 +55,7 @@ type SignInput struct {
 	PubKeyEdDSA string
 }
 
-// Generates a 32-byte random chain code encoded as a hexadecimal string.
+// GenerateRandomChainCodeHex Generates a 32-byte random chain code encoded as a hexadecimal string.
 // Does not take arg because it relies on the (secure) rng from the crypto pkg
 func GenerateRandomChainCodeHex() (string, error) {
 	chainCode := make([]byte, 32)
@@ -63,20 +66,19 @@ func GenerateRandomChainCodeHex() (string, error) {
 	return encodedChainCode, nil
 }
 
-// Orchestrates TSS keygen process for ECDSA & EdDSA
+// ExecuteKeyGeneration Orchestrates TSS keygen process for ECDSA & EdDSA
 // including session management and message handling
 func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
 		return "", fmt.Errorf("fail to register session: %w", err)
 	}
-	log.Println("Registered session for " + input.Key)
-
+	log.Debug("Registered session", "key", input.Key)
 	var partiesJoined []string
 	var err error
 	if partiesJoined, err = waitForSessionStart(input.Server, input.Session); err != nil {
 		return "", fmt.Errorf("fail to wait for session start: %w", err)
 	}
-	log.Println("All parties have joined the session for " + input.Key)
+	log.Debug("All parties have joined the session", "key", input.Key)
 
 	messenger := &MessengerImp{
 		Server:    input.Server,
@@ -90,12 +92,12 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("fail to create tss server: %w", err)
 	}
-	log.Println("start downloading messages...")
+	log.Debug("start downloading messages...")
 	endCh := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
-	log.Println("start ECDSA keygen...")
+	log.Debug("start ECDSA keygen...")
 	resp, err := tssServerImp.KeygenECDSA(&tss.KeygenRequest{
 		LocalPartyID: input.Key,
 		AllParties:   strings.Join(partiesJoined, ","),
@@ -104,9 +106,9 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("fail to generate ECDSA key: %w", err)
 	}
-	log.Printf("ECDSA keygen response: %+v\n", resp)
+	log.Debug("ECDSA keygen success", "response", resp)
 	time.Sleep(time.Second)
-	log.Println("start EDDSA keygen...")
+	log.Debug("start EDDSA keygen...")
 	respEDDSA, errEDDSA := tssServerImp.KeygenEdDSA(&tss.KeygenRequest{
 		LocalPartyID: input.Key,
 		AllParties:   strings.Join(partiesJoined, ","),
@@ -115,17 +117,17 @@ func ExecuteKeyGeneration(input KeygenInput) (string, error) {
 	if errEDDSA != nil {
 		return "", fmt.Errorf("fail to generate EDDSA key: %w", errEDDSA)
 	}
-	log.Printf("EDDSA keygen response: %+v\n", respEDDSA)
+	log.Debug("EDDSA keygen response success", "response", respEDDSA)
 	time.Sleep(time.Second)
 	if err := endSession(input.Server, input.Session); err != nil {
-		log.Printf("fail to end session: %s\n", err)
+		log.Error("fail to end session", "error", err)
 	}
 	close(endCh)
 	wg.Wait()
 	return resp.PubKey, nil
 }
 
-// Manages the key resharing process for ECDSA & EdDSA
+// ExecuteKeyResharing Manages the key resharing process for ECDSA & EdDSA
 // ensures all parties are synced and sessions are properly handled
 func ExecuteKeyResharing(input ReshareInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
@@ -154,7 +156,7 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
-	log.Println("start ECDSA key resharing...")
+	log.Debug("start ECDSA key resharing...")
 	resp, err := tssServerImp.ReshareECDSA(&tss.ReshareRequest{
 		PubKey:        input.PubKey,
 		LocalPartyID:  input.Key,
@@ -166,9 +168,9 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("fail to reshare ECDSA key: %w", err)
 	}
-	log.Printf("ECDSA keygen response: %+v\n", resp)
+	log.Debug("ECDSA reshare success", "response", resp)
 	time.Sleep(time.Second)
-	log.Println("start EDDSA keygen...")
+	log.Debug("start EDDSA reshare...")
 	respEDDSA, errEdDSA := tssServerImp.ResharingEdDSA(&tss.ReshareRequest{
 		PubKey:        input.PubKeyEdDSA,
 		LocalPartyID:  input.Key,
@@ -180,17 +182,17 @@ func ExecuteKeyResharing(input ReshareInput) (string, error) {
 	if errEdDSA != nil {
 		return "", fmt.Errorf("fail to generate EDDSA key: %w", errEdDSA)
 	}
-	log.Printf("EDDSA keygen response: %+v\n", respEDDSA)
+	log.Debug("EDDSA reshare success", "response", respEDDSA)
 	time.Sleep(time.Second)
 	if err := endSession(input.Server, input.Session); err != nil {
-		log.Printf("fail to end session: %s\n", err)
+		log.Error("fail to end session", "error", err)
 	}
 	close(endCh)
 	wg.Wait()
 	return "", nil
 }
 
-// Coordinates ECDSA signing process in a TSS env
+// ExecuteECDSAKeySigning Coordinates ECDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
 func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
@@ -240,22 +242,18 @@ func ExecuteECDSAKeySigning(input SignInput) (string, error) {
 	}
 	signature := append(rBytes, sBytes...)
 	signatureEncoded := base64.StdEncoding.EncodeToString(signature)
-	log.Printf("ECDSA keysign signature: %s\n", signatureEncoded)
-	// if err != nil {
-	// 	return fmt.Errorf("fail to ECDSA key sign: %w", err)
-	// }
-	log.Printf("ECDSA keysign response: %+v\n", resp)
+	log.Debug("ECDSA keysign success", "signature", signatureEncoded)
 	// delay one second before clean up the session
 	time.Sleep(time.Second)
 	if err := endSession(input.Server, input.Session); err != nil {
-		log.Printf("fail to end session: %s\n", err)
+		log.Error("fail to end session", "error", err)
 	}
 	close(endCh)
 	wg.Wait()
 	return signatureEncoded, nil
 }
 
-// Coordinates EdDSA signing process in a TSS env
+// ExecuteEdDSAKeySigning Coordinates EdDSA signing process in a TSS env
 // from session setup to computing and encoding the signature
 func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 	if err := registerSession(input.Server, input.Session, input.Key); err != nil {
@@ -284,7 +282,7 @@ func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go downloadMessage(input.Server, input.Session, input.Key, tssServerImp, endCh, wg)
-	log.Println("start EDDSA keysign...")
+	log.Debug("start EDDSA keysign...")
 	resp, err := tssServerImp.KeysignEdDSA(&tss.KeysignRequest{
 		PubKey:               input.PubKey,
 		MessageToSign:        input.Message,
@@ -305,12 +303,12 @@ func ExecuteEdDSAKeySigning(input SignInput) (string, error) {
 	}
 	signature := append(rBytes, sBytes...)
 	signatureEncoded := base64.StdEncoding.EncodeToString(signature)
-	log.Printf("ECDSA keysign signature: %s\n", signatureEncoded)
+	log.Debug("EDDSA keysign success", "signature", signatureEncoded)
 
 	// delay one second before clean up the session
 	time.Sleep(time.Second)
 	if err := endSession(input.Server, input.Session); err != nil {
-		log.Printf("fail to end session: %s\n", err)
+		log.Error("fail to end session", "error", err)
 	}
 	close(endCh)
 	wg.Wait()
