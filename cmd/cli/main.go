@@ -210,7 +210,21 @@ func reshareCmd(c *cli.Context) error {
 	pubkeyEdDSA := c.String("pubkey-eddsa")
 	oldParties := c.StringSlice("old-parties")
 	resharePrefix := c.String("reshareprefix")
-
+	parties := c.StringSlice("parties")
+	isLeader := c.Bool("leader")
+	if isLeader {
+		fmt.Println("I am the leader , start to wait for all parties to join")
+		go func() {
+			if coordinator.WaitAllParties(parties, server, session) != nil {
+				fmt.Println("failed to wait for all parties to join")
+				return
+			}
+			fmt.Println("all parties joined")
+			if err := coordinator.StartSession(server, session, parties); err != nil {
+				fmt.Println("failed to start session", err)
+			}
+		}()
+	}
 	_, err := coordinator.ExecuteKeyResharing(coordinator.ReshareInput{
 		Key:           key,
 		Session:       session,
@@ -236,7 +250,21 @@ func keysignECDSACmd(c *cli.Context) error {
 	pubkey := c.String("pubkey")
 	message := c.String("message")
 	derivePath := c.String("derivepath")
-
+	parties := c.StringSlice("parties")
+	isLeader := c.Bool("leader")
+	if isLeader {
+		fmt.Println("I am the leader , start to wait for all parties to join")
+		go func() {
+			if coordinator.WaitAllParties(parties, server, session) != nil {
+				fmt.Println("failed to wait for all parties to join")
+				return
+			}
+			fmt.Println("all parties joined")
+			if err := coordinator.StartSession(server, session, parties); err != nil {
+				fmt.Println("failed to start session", err)
+			}
+		}()
+	}
 	_, err := coordinator.ExecuteECDSAKeySigning(coordinator.SignInput{
 		Key:        key,
 		Session:    session,
@@ -259,7 +287,21 @@ func keysignEDDSACmd(c *cli.Context) error {
 	server := c.String("server")
 	pubkey := c.String("pubkey")
 	message := c.String("message")
-
+	parties := c.StringSlice("parties")
+	isLeader := c.Bool("leader")
+	if isLeader {
+		fmt.Println("I am the leader , start to wait for all parties to join")
+		go func() {
+			if coordinator.WaitAllParties(parties, server, session) != nil {
+				fmt.Println("failed to wait for all parties to join")
+				return
+			}
+			fmt.Println("all parties joined")
+			if err := coordinator.StartSession(server, session, parties); err != nil {
+				fmt.Println("failed to start session", err)
+			}
+		}()
+	}
 	_, err := coordinator.ExecuteEdDSAKeySigning(coordinator.SignInput{
 		Key:     key,
 		Session: session,
