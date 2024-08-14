@@ -309,6 +309,9 @@ func (s *ServiceImpl) processResharing(oldLocalParty tss.Party,
 							return "", fmt.Errorf("fail to apply message old committee local party")
 						}
 					}
+
+					// message already applied to local party , no need to send to messenger
+					continue
 				}
 				outboundPayload, err := getOutboundMessage(msgData, string(r.From.GetKey()), string(item.GetKey()), r.IsBroadcast)
 				if err != nil {
@@ -395,12 +398,12 @@ func (s *ServiceImpl) applyReshareMessageToTssInstance(oldLocalParty, newLocalPa
 	if strings.HasPrefix(msgFromTss.To, s.resharePrefix) {
 		_, errUpdate := newLocalParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
 		if errUpdate != nil {
-			return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
+			return "", fmt.Errorf("failed to update from bytes to new local party, error: %w", errUpdate)
 		}
 	} else {
 		_, errUpdate := oldLocalParty.UpdateFromBytes(msgFromTss.WireBytes, fromParty, msgFromTss.IsBroadcast)
 		if errUpdate != nil {
-			return "", fmt.Errorf("failed to update from bytes, error: %w", errUpdate)
+			return "", fmt.Errorf("failed to update from bytes to old local party, error: %w", errUpdate)
 		}
 	}
 	return "", nil
