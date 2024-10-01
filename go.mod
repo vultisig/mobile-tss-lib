@@ -1,6 +1,8 @@
 module github.com/vultisig/mobile-tss-lib
 
-go 1.21.1
+go 1.22.2
+
+toolchain go1.22.5
 
 require (
 	github.com/bnb-chain/tss-lib/v2 v2.0.2
@@ -10,9 +12,18 @@ require (
 	github.com/cosmos/cosmos-sdk v0.50.4
 	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.3
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
+	github.com/eager7/dogd v0.0.0-20200427085516-2caf59f59dbb
+	github.com/eager7/dogutil v0.0.0-20200427040807-200e961ba4b5
 	github.com/ethereum/go-ethereum v1.13.12
+	github.com/gcash/bchd v0.17.2-0.20201218180520-5708823e0e99
+	github.com/gcash/bchutil v0.0.0-20210113190856-6ea28dff4000
+	github.com/golang/protobuf v1.5.3
 	github.com/ipfs/go-log/v2 v2.1.3
+	github.com/ltcsuite/ltcd v0.23.5
+	github.com/ltcsuite/ltcd/ltcutil v1.1.3
 	github.com/urfave/cli/v2 v2.27.1
+	github.com/vultisig/commondata v0.0.0-20241001024659-50cb6f1ca345
+	golang.org/x/term v0.23.0
 )
 
 require (
@@ -46,6 +57,7 @@ require (
 	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/dchest/siphash v1.2.2 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
@@ -56,7 +68,6 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang/glog v1.2.0 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -71,10 +82,13 @@ require (
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/linxGnu/grocksdb v1.8.12 // indirect
+	github.com/ltcsuite/ltcd/btcec/v2 v2.3.2 // indirect
+	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a // indirect
@@ -105,20 +119,17 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
-	golang.org/x/mobile v0.0.0-20240806205939-81131f6468ab // indirect
-	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
-	golang.org/x/tools v0.24.0 // indirect
 	google.golang.org/genproto v0.0.0-20231211222908-989df2bf70f3 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231212172506-995d672761c0 // indirect
 	google.golang.org/grpc v1.60.1 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	lukechampine.com/blake3 v1.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
