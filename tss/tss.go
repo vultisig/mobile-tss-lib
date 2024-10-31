@@ -30,6 +30,7 @@ type ServiceImpl struct {
 	inboundMessageCh chan string
 	resharePrefix    string
 }
+
 type MessageFromTss struct {
 	WireBytes   []byte `json:"wire_bytes"`
 	From        string `json:"from"`
