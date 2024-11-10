@@ -321,6 +321,11 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 				derivePath: "m/44'/931'/0'/0/0",
 				action:     showMayachainKey,
 			},
+			{
+				name:       "gaiachain",
+				derivePath: "m/44'/118'/0'/0/0",
+				action:     showGAIAKey,
+			},
 		}
 		for _, coin := range supportedCoins {
 			fmt.Println("Recovering", coin.name, "key....")
@@ -445,6 +450,34 @@ func showMayachainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	fmt.Println("address:", addr.String())
 	return nil
 }
+
+func showGAIAKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for GAIAChain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for GAIAChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for GAIAChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
+	config.SetBech32PrefixForValidator("cosmosvaloper", "cosmosvaloperpub")
+	config.SetBech32PrefixForConsensusNode("cosmosvalcons", "cosmosvalconspub")
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+	addr := types.AccAddress(compressedPubkey.Address().Bytes())
+	fmt.Println("address:", addr.String())
+	return nil
+}
+
+
 
 func decryptFileAction(ctx *cli.Context) error {
 	for _, item := range ctx.Args().Slice() {
