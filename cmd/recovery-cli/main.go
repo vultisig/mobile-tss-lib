@@ -453,16 +453,15 @@ func showMayachainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 
 	fmt.Println("hex encoded non-hardened private key for MAYAChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
 	fmt.Println("hex encoded non-hardened public key for MAYAChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
-	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount("maya", "mayapub")
-	config.SetBech32PrefixForValidator("mayav", "mayavpub")
-	config.SetBech32PrefixForConsensusNode("mayac", "mayacpub")
 
 	compressedPubkey := coskey.PubKey{
 		Key: nonHardenedPubKey.SerializeCompressed(),
 	}
-	addr := types.AccAddress(compressedPubkey.Address().Bytes())
-	fmt.Println("address:", addr.String())
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("maya", addrBytes)
+	fmt.Println("address:", bech32Addr)
 	return nil
 }
 
