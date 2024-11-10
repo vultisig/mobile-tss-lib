@@ -322,9 +322,9 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 				action:     showMayachainKey,
 			},
 			{
-				name:       "gaiachain",
+				name:       "atomchain",
 				derivePath: "m/44'/118'/0'/0/0",
-				action:     showGAIAKey,
+				action:     showAtomKey,
 			},
 			{
 				name:       "kujirachain",
@@ -465,7 +465,7 @@ func showMayachainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	return nil
 }
 
-func showGAIAKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+func showAtomKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	fmt.Println("non-hardened extended private key for GAIAChain:", extendedPrivateKey.String())
 	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
 	if err != nil {
