@@ -326,6 +326,11 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 				derivePath: "m/44'/118'/0'/0/0",
 				action:     showGAIAKey,
 			},
+			{
+				name:       "kujirachain",
+				derivePath: "m/44'/118'/0'/0/0",
+				action:     showKujiKey,
+			},
 		}
 		for _, coin := range supportedCoins {
 			fmt.Println("Recovering", coin.name, "key....")
@@ -474,6 +479,34 @@ func showGAIAKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	}
 	addr := types.AccAddress(compressedPubkey.Address().Bytes())
 	fmt.Println("address:", addr.String())
+	return nil
+}
+
+func showKujiKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for Kuji Chain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for Kuji Chain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for Kuji Chain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("kujira", addrBytes)
+	
+	fmt.Println("address:", bech32Addr)
 	return nil
 }
 
