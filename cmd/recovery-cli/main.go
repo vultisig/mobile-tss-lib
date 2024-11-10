@@ -332,6 +332,11 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 				action:     showKujiKey,
 			},
 			{
+				name:       "dydx",
+				derivePath: "m/44'/118'/0'/0/0",
+				action:     showDydxKey,
+			},
+			{
 				name:       "terrachain",
 				derivePath: "m/44'/118'/0'/0/0", //Terra (LUNA) also supports m/44'/330'/0'/0/0 but for re-use - using LUNC
 				action:     showTerraKey,
@@ -538,6 +543,34 @@ func showTerraKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
 	// Use sdk.Bech32ifyAccPub with the correct prefix
 	bech32Addr := sdk.MustBech32ifyAddressBytes("terra", addrBytes)
+
+	fmt.Println("address:", bech32Addr)
+	return nil
+}
+
+func showDydxKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for DYDX Chain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for DYDX Chain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for DYDX Chain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("dydx", addrBytes)
 
 	fmt.Println("address:", bech32Addr)
 	return nil
