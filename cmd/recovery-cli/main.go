@@ -409,7 +409,7 @@ func showBitcoinKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	}
 	fmt.Println("hex encoded non-hardened public key for bitcoin:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
 	fmt.Println("address:", addressPubKey.EncodeAddress())
-	fmt.Println("WIF private key for bitcoin:", wif.String())
+	fmt.Println("WIF private key for bitcoin: p2wpkh:", wif.String())
 	return nil
 }
 
