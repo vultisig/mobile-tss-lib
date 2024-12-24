@@ -170,43 +170,70 @@ func (s *ServiceImpl) processKeygen(
 	localState *LocalState,
 	sortedPartyIds tss.SortedPartyIDs) (string, error) {
 
+	// intercept outMsg broadcasting errors
+	inErrChan := make(chan error, 1)
+
 	for {
-		// wait for result
+		// wait for result.
+		// note that select {} does not garantee channels sequencings - processed with randomness
 		select {
+
 		case <-errCh: // fail to start keygen process , exit immediately
 			return "", errors.New("failed to start keygen process")
+
+		case err := <-inErrChan: // to reflect msgOut backgroudn broadcasts errors
+			return "", err
+
 		case outMsg := <-outCh:
-			// pass the message to messenger
-			msgData, r, err := outMsg.WireBytes()
-			if err != nil {
-				return "", fmt.Errorf("failed to get wire bytes, error: %w", err)
-			}
-			jsonBytes, err := json.MarshalIndent(MessageFromTss{
-				WireBytes:   msgData,
-				From:        r.From.Moniker,
-				IsBroadcast: r.IsBroadcast,
-			}, "", "  ")
-			if err != nil {
-				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
-			}
-			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			if r.IsBroadcast || r.To == nil {
-				for _, item := range localState.KeygenCommitteeKeys {
-					// don't send message to itself
-					if item == localState.LocalPartyKey {
-						continue
+			// unblocking broadcast:
+			//. when broadcast takes significant amount of time
+			//. the next - before last (round) message broadcast may not happen
+			//.     while the tss-lib fires the outCh and endCh correctly in sequence
+			//.     the select {} may selects ecdsaEndCh or eddsaEndCh randomly instead of the last outCh
+			//.     ref# https://go.dev/tour/concurrency/5 :
+			//.     "The select statement lets a goroutine wait on multiple communication operations.
+			//.       A select blocks until one of its cases can run, then it executes that case.
+			//.   >   It chooses one at random if multiple are ready."
+			//. causing ahead of time keysign abort sending last message,
+			//. leading the other party(ies) not receiving the last message and failing they side keysign
+			//. to avoid the issue, broadcast in background
+			go func() {
+				// pass the message to messenger
+				msgData, r, err := outMsg.WireBytes()
+				if err != nil {
+					inErrChan <- fmt.Errorf("failed to get wire bytes, error: %w", err)
+					return
+				}
+				jsonBytes, err := json.MarshalIndent(MessageFromTss{
+					WireBytes:   msgData,
+					From:        r.From.Moniker,
+					IsBroadcast: r.IsBroadcast,
+				}, "", "  ")
+				if err != nil {
+					inErrChan <- fmt.Errorf("failed to marshal message to json, error: %w", err)
+					return
+				}
+				outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
+				if r.IsBroadcast || r.To == nil {
+					for _, item := range localState.KeygenCommitteeKeys {
+						// don't send message to itself
+						if item == localState.LocalPartyKey {
+							continue
+						}
+						if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
+							inErrChan <- fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+							return
+						}
 					}
-					if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
-						return "", fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+				} else {
+					for _, item := range r.To {
+						if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+							inErrChan <- fmt.Errorf("failed to send message to peer, error: %w", err)
+						}
 					}
 				}
-			} else {
-				for _, item := range r.To {
-					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
-						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
-					}
-				}
-			}
+			}()
+
 		case msg := <-s.inboundMessageCh:
 			// apply the message to the tss instance
 			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
@@ -223,8 +250,8 @@ func (s *ServiceImpl) processKeygen(
 			if err := s.saveLocalStateData(localState); err != nil {
 				return "", fmt.Errorf("failed to save local state data, error: %w", err)
 			}
-
 			return pubKey, nil
+
 		case saveData := <-eddsaEndCh:
 			pubKey, err := GetHexEncodedPubKey(saveData.EDDSAPub)
 			if err != nil {
@@ -236,6 +263,7 @@ func (s *ServiceImpl) processKeygen(
 				return "", fmt.Errorf("failed to save local state data, error: %w", err)
 			}
 			return pubKey, nil
+
 		case <-time.After(2 * time.Minute):
 			return "", errors.New("keygen timeout, keygen didn't finish in 2 minutes")
 		}
@@ -387,51 +415,80 @@ func (s *ServiceImpl) processKeySign(
 	outCh <-chan tss.Message,
 	endCh <-chan *common.SignatureData,
 	sortedPartyIds tss.SortedPartyIDs) (*common.SignatureData, error) {
+
+	// intercept outMsg broadcasting errors
+	inErrChan := make(chan error, 1)
+
 	for {
 		select {
 		case <-errCh:
 			return nil, errors.New("failed to start keysign process")
+
+		case err := <-inErrChan: // to reflect msgOut backgroudn broadcasts errors
+			return nil, err
+
 		case msg := <-outCh:
-			msgData, r, err := msg.WireBytes()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get wire bytes, error: %w", err)
-			}
-			jsonBytes, err := json.MarshalIndent(MessageFromTss{
-				WireBytes:   msgData,
-				From:        r.From.Moniker,
-				IsBroadcast: r.IsBroadcast,
-			}, "", "  ")
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal message to json, error: %w", err)
-			}
-			// for debug
-			log.Println("send message to peer", "message", string(jsonBytes))
-			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			if r.IsBroadcast {
-				for _, item := range sortedPartyIds {
-					// don't send message to itself
-					// the reason we can do this is because we set Monitor to be the participant key
-					if item.Moniker == localParty.PartyID().Moniker {
-						continue
+			// unblocking broadcast:
+			//. when broadcast takes significant amount of time
+			//. the next - before last (round) message broadcast may not happen
+			//.     while the tss-lib fires the outCh and endCh correctly in sequence
+			//.     the select {} may selects ecdsaEndCh or eddsaEndCh randomly instead of the last outCh
+			//.     ref# https://go.dev/tour/concurrency/5 :
+			//.     "The select statement lets a goroutine wait on multiple communication operations.
+			//.       A select blocks until one of its cases can run, then it executes that case.
+			//.   >   It chooses one at random if multiple are ready."
+			//. causing ahead of time keysign abort sending last message,
+			//. leading the other party(ies) not receiving the last message and failing they side keysign
+			//. to avoid the issue, broadcast in background
+			go func() {
+				msgData, r, err := msg.WireBytes()
+				if err != nil {
+					inErrChan <- fmt.Errorf("failed to get wire bytes, error: %w", err)
+					return
+				}
+				jsonBytes, err := json.MarshalIndent(MessageFromTss{
+					WireBytes:   msgData,
+					From:        r.From.Moniker,
+					IsBroadcast: r.IsBroadcast,
+				}, "", "  ")
+				if err != nil {
+					inErrChan <- fmt.Errorf("failed to marshal message to json, error: %w", err)
+					return
+				}
+				// for debug
+				log.Println("send message to peer", "message", string(jsonBytes))
+				outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
+				if r.IsBroadcast {
+					for _, item := range sortedPartyIds {
+						// don't send message to itself
+						// the reason we can do this is because we set Monitor to be the participant key
+						if item.Moniker == localParty.PartyID().Moniker {
+							continue
+						}
+						if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+							inErrChan <- fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+							return
+						}
 					}
-					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
-						return nil, fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+				} else {
+					for _, item := range r.To {
+						if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+							inErrChan <- fmt.Errorf("failed to send message to peer, error: %w", err)
+							return
+						}
 					}
 				}
-			} else {
-				for _, item := range r.To {
-					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
-						return nil, fmt.Errorf("failed to send message to peer, error: %w", err)
-					}
-				}
-			}
+			}()
+
 		case msg := <-s.inboundMessageCh:
 			// apply the message to the tss instance
 			if _, err := s.applyMessageToTssInstance(localParty, msg, sortedPartyIds); err != nil {
 				return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 			}
+
 		case sig := <-endCh: // finished keysign successfully
 			return sig, nil
+
 		case <-time.After(time.Minute):
 			return nil, fmt.Errorf("fail to finish keysign after one minute")
 		}
