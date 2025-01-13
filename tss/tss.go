@@ -161,6 +161,52 @@ func (s *ServiceImpl) applyMessageToTssInstance(localParty tss.Party, msg string
 
 	return "", nil
 }
+func (s *ServiceImpl) sendOutbound(outMsg tss.Message, localState *LocalState) error {
+	msgData, r, err := outMsg.WireBytes()
+	if err != nil {
+		return fmt.Errorf("failed to get wire bytes, error: %w", err)
+	}
+	jsonBytes, err := json.MarshalIndent(MessageFromTss{
+		WireBytes:   msgData,
+		From:        r.From.Moniker,
+		IsBroadcast: r.IsBroadcast,
+	}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal message to json, error: %w", err)
+	}
+	outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
+	if r.IsBroadcast || r.To == nil {
+		for _, item := range localState.KeygenCommitteeKeys {
+			// don't send message to itself
+			if item == localState.LocalPartyKey {
+				continue
+			}
+			if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
+				return fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+			}
+		}
+	} else {
+		for _, item := range r.To {
+			if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+				return fmt.Errorf("failed to send message to peer, error: %w", err)
+			}
+		}
+	}
+	return nil
+}
+func (s *ServiceImpl) drainMessageCh(outCh <-chan tss.Message, localState *LocalState) error {
+	for {
+		select {
+		case outMsg := <-outCh:
+			log.Println("message get drain")
+			if err := s.sendOutbound(outMsg, localState); err != nil {
+				return fmt.Errorf("failed to send outbound message, error: %w", err)
+			}
+		default:
+			return nil
+		}
+	}
+}
 func (s *ServiceImpl) processKeygen(
 	localParty tss.Party,
 	errCh <-chan struct{},
@@ -169,7 +215,6 @@ func (s *ServiceImpl) processKeygen(
 	eddsaEndCh <-chan *eddsaKeygen.LocalPartySaveData,
 	localState *LocalState,
 	sortedPartyIds tss.SortedPartyIDs) (string, error) {
-
 	for {
 		// wait for result
 		select {
@@ -177,35 +222,8 @@ func (s *ServiceImpl) processKeygen(
 			return "", errors.New("failed to start keygen process")
 		case outMsg := <-outCh:
 			// pass the message to messenger
-			msgData, r, err := outMsg.WireBytes()
-			if err != nil {
-				return "", fmt.Errorf("failed to get wire bytes, error: %w", err)
-			}
-			jsonBytes, err := json.MarshalIndent(MessageFromTss{
-				WireBytes:   msgData,
-				From:        r.From.Moniker,
-				IsBroadcast: r.IsBroadcast,
-			}, "", "  ")
-			if err != nil {
-				return "", fmt.Errorf("failed to marshal message to json, error: %w", err)
-			}
-			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			if r.IsBroadcast || r.To == nil {
-				for _, item := range localState.KeygenCommitteeKeys {
-					// don't send message to itself
-					if item == localState.LocalPartyKey {
-						continue
-					}
-					if err := s.messenger.Send(r.From.Moniker, item, outboundPayload); err != nil {
-						return "", fmt.Errorf("failed to broadcast message to peer, error: %w", err)
-					}
-				}
-			} else {
-				for _, item := range r.To {
-					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
-						return "", fmt.Errorf("failed to send message to peer, error: %w", err)
-					}
-				}
+			if err := s.sendOutbound(outMsg, localState); err != nil {
+				return "", fmt.Errorf("failed to send outbound message, error: %w", err)
 			}
 		case msg := <-s.inboundMessageCh:
 			// apply the message to the tss instance
@@ -214,6 +232,11 @@ func (s *ServiceImpl) processKeygen(
 			}
 
 		case saveData := <-ecdsaEndCh:
+			if len(outCh) > 0 {
+				if s.drainMessageCh(outCh, localState) != nil {
+					return "", errors.New("failed to drain message channel")
+				}
+			}
 			pubKey, err := GetHexEncodedPubKey(saveData.ECDSAPub)
 			if err != nil {
 				return "", fmt.Errorf("failed to get hex encoded ecdsa pub key, error: %w", err)
@@ -226,6 +249,11 @@ func (s *ServiceImpl) processKeygen(
 
 			return pubKey, nil
 		case saveData := <-eddsaEndCh:
+			if len(outCh) > 0 {
+				if s.drainMessageCh(outCh, localState) != nil {
+					return "", errors.New("failed to drain message channel")
+				}
+			}
 			pubKey, err := GetHexEncodedPubKey(saveData.EDDSAPub)
 			if err != nil {
 				return "", fmt.Errorf("failed to get hex encoded eddsa pub key, error: %w", err)
@@ -381,6 +409,54 @@ func (s *ServiceImpl) KeysignECDSA(req *KeysignRequest) (*KeysignResponse, error
 	}, nil
 }
 
+func (s *ServiceImpl) sendKeysignOutbound(msg tss.Message, localParty tss.Party, sortedPartyIds tss.SortedPartyIDs) error {
+	msgData, r, err := msg.WireBytes()
+	if err != nil {
+		return fmt.Errorf("failed to get wire bytes, error: %w", err)
+	}
+	jsonBytes, err := json.MarshalIndent(MessageFromTss{
+		WireBytes:   msgData,
+		From:        r.From.Moniker,
+		IsBroadcast: r.IsBroadcast,
+	}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal message to json, error: %w", err)
+	}
+	// for debug
+	log.Println("send message to peer", "message", string(jsonBytes))
+	outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
+	if r.IsBroadcast {
+		for _, item := range sortedPartyIds {
+			// don't send message to itself
+			// the reason we can do this is because we set Monitor to be the participant key
+			if item.Moniker == localParty.PartyID().Moniker {
+				continue
+			}
+			if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+				return fmt.Errorf("failed to broadcast message to peer, error: %w", err)
+			}
+		}
+	} else {
+		for _, item := range r.To {
+			if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
+				return fmt.Errorf("failed to send message to peer, error: %w", err)
+			}
+		}
+	}
+	return nil
+}
+func (s *ServiceImpl) drainKeysignMessage(outCh <-chan tss.Message, localParty tss.Party, sortedPartyIds tss.SortedPartyIDs) error {
+	for {
+		select {
+		case outMsg := <-outCh:
+			if err := s.sendKeysignOutbound(outMsg, localParty, sortedPartyIds); err != nil {
+				return fmt.Errorf("failed to send keysign outbound message, error: %w", err)
+			}
+		default:
+			return nil
+		}
+	}
+}
 func (s *ServiceImpl) processKeySign(
 	localParty tss.Party,
 	errCh <-chan struct{},
@@ -392,38 +468,8 @@ func (s *ServiceImpl) processKeySign(
 		case <-errCh:
 			return nil, errors.New("failed to start keysign process")
 		case msg := <-outCh:
-			msgData, r, err := msg.WireBytes()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get wire bytes, error: %w", err)
-			}
-			jsonBytes, err := json.MarshalIndent(MessageFromTss{
-				WireBytes:   msgData,
-				From:        r.From.Moniker,
-				IsBroadcast: r.IsBroadcast,
-			}, "", "  ")
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal message to json, error: %w", err)
-			}
-			// for debug
-			log.Println("send message to peer", "message", string(jsonBytes))
-			outboundPayload := base64.StdEncoding.EncodeToString(jsonBytes)
-			if r.IsBroadcast {
-				for _, item := range sortedPartyIds {
-					// don't send message to itself
-					// the reason we can do this is because we set Monitor to be the participant key
-					if item.Moniker == localParty.PartyID().Moniker {
-						continue
-					}
-					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
-						return nil, fmt.Errorf("failed to broadcast message to peer, error: %w", err)
-					}
-				}
-			} else {
-				for _, item := range r.To {
-					if err := s.messenger.Send(r.From.Moniker, item.Moniker, outboundPayload); err != nil {
-						return nil, fmt.Errorf("failed to send message to peer, error: %w", err)
-					}
-				}
+			if err := s.sendKeysignOutbound(msg, localParty, sortedPartyIds); err != nil {
+				return nil, fmt.Errorf("failed to send keysign outbound message, error: %w", err)
 			}
 		case msg := <-s.inboundMessageCh:
 			// apply the message to the tss instance
@@ -431,6 +477,11 @@ func (s *ServiceImpl) processKeySign(
 				return nil, fmt.Errorf("failed to apply message to tss instance, error: %w", err)
 			}
 		case sig := <-endCh: // finished keysign successfully
+			if len(outCh) > 0 {
+				if s.drainKeysignMessage(outCh, localParty, sortedPartyIds) != nil {
+					return nil, errors.New("failed to drain keysign message channel")
+				}
+			}
 			return sig, nil
 		case <-time.After(time.Minute):
 			return nil, fmt.Errorf("fail to finish keysign after one minute")
