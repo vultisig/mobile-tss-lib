@@ -198,6 +198,7 @@ func (s *ServiceImpl) drainMessageCh(outCh <-chan tss.Message, localState *Local
 	for {
 		select {
 		case outMsg := <-outCh:
+			log.Println("message get drain")
 			if err := s.sendOutbound(outMsg, localState); err != nil {
 				return fmt.Errorf("failed to send outbound message, error: %w", err)
 			}
