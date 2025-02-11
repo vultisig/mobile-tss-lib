@@ -21,6 +21,7 @@ import (
 	coskey "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	edwards "github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
@@ -264,13 +265,13 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 	if err != nil {
 		return err
 	}
-	privateKey := secp256k1.PrivKeyFromBytes(tssPrivateKey.Bytes())
-	publicKey := privateKey.PubKey()
-	hexPubKey := hex.EncodeToString(publicKey.SerializeCompressed())
-	// unharden derive all the keys
-	fmt.Printf("hex encoded root pubkey(%s):%s\n", keyType, hexPubKey)
-	fmt.Printf("hex encoded root privkey(%s):%s\n", keyType, hex.EncodeToString(privateKey.Serialize()))
 	if keyType == ECDSA {
+		privateKey := secp256k1.PrivKeyFromBytes(tssPrivateKey.Bytes())
+		publicKey := privateKey.PubKey()
+		hexPubKey := hex.EncodeToString(publicKey.SerializeCompressed())
+		// unharden derive all the keys
+		fmt.Printf("hex encoded root pubkey(%s):%s\n", keyType, hexPubKey)
+		fmt.Printf("hex encoded root privkey(%s):%s\n", keyType, hex.EncodeToString(privateKey.Serialize()))
 		net := &chaincfg.MainNetParams
 		chaincode := allSecrets[0].LocalState[ECDSA].ChainCodeHex
 		fmt.Println("chaincode:", chaincode)
@@ -333,6 +334,11 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 				fmt.Println("error showing keys for ", coin.name, "error:", err)
 			}
 		}
+	} else {
+		privateKey, publicKey, _ := edwards.PrivKeyFromScalar(tssPrivateKey.Bytes())
+		publicKeyBytes := publicKey.SerializeCompressed()
+		fmt.Printf("hex encoded root pubkey(%s):%s\n", keyType, hex.EncodeToString(publicKeyBytes))
+		fmt.Printf("hex encoded root privkey(%s):%s\n", keyType, hex.EncodeToString(privateKey.Serialize()))
 	}
 	return nil
 }
