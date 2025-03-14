@@ -16,6 +16,7 @@ import (
 	"github.com/bnb-chain/tss-lib/v2/crypto/vss"
 	binanceTss "github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/btcsuite/btcd/btcutil"
+	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
 	coskey "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -339,6 +340,10 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 		publicKeyBytes := publicKey.SerializeCompressed()
 		fmt.Printf("hex encoded root pubkey(%s):%s\n", keyType, hex.EncodeToString(publicKeyBytes))
 		fmt.Printf("hex encoded root privkey(%s):%s\n", keyType, hex.EncodeToString(privateKey.Serialize()))
+		result := append(privateKey.SerializeSecret(), publicKeyBytes...)
+		phantomKey := base58.Encode(result)
+		fmt.Println("phantom key:", phantomKey)
+
 	}
 	return nil
 }

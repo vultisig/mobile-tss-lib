@@ -1,11 +1,10 @@
 module github.com/vultisig/mobile-tss-lib
 
-go 1.22.2
+go 1.23.0
 
-toolchain go1.22.5
+toolchain go1.24.0
 
 require (
-	filippo.io/edwards25519 v1.0.0
 	github.com/bnb-chain/tss-lib/v2 v2.0.2
 	github.com/btcsuite/btcd v0.24.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
@@ -24,7 +23,7 @@ require (
 	github.com/ltcsuite/ltcd/ltcutil v1.1.3
 	github.com/urfave/cli/v2 v2.27.1
 	github.com/vultisig/commondata v0.0.0-20241001024659-50cb6f1ca345
-	golang.org/x/term v0.28.0
+	golang.org/x/term v0.30.0
 )
 
 require (
@@ -118,11 +117,15 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
-	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/mobile v0.0.0-20250305212854-3a7bc9f8a4de // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/tools v0.31.0 // indirect
 	google.golang.org/genproto v0.0.0-20231211222908-989df2bf70f3 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231212172506-995d672761c0 // indirect
