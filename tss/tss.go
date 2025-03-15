@@ -588,19 +588,12 @@ func (*ServiceImpl) validateKeysignRequest(req *KeysignRequest) error {
 	return nil
 }
 
-// GetLocalUIs returns the local UI for the given keyshare in hex format
-func GetLocalUI(keyshare string) (*LocalUIResponse, error) {
+func GetLocalUIEcdsa(keyshare string) (string, error) {
 	var localState LocalState
 	if err := json.Unmarshal([]byte(keyshare), &localState); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal local state, error: %w", err)
+		return "", fmt.Errorf("failed to unmarshal local state, error: %w", err)
 	}
-	return &LocalUIResponse{
-		UIEcdsa: hex.EncodeToString(getLocalUIEcdsa(localState.ECDSALocalData)),
-		UIEddsa: hex.EncodeToString(getLocalUIEddsa(localState.EDDSALocalData)),
-	}, nil
-}
-
-func getLocalUIEcdsa(localPartySaveData ecdsaKeygen.LocalPartySaveData) []byte {
+	localPartySaveData := localState.ECDSALocalData
 	modQ := common.ModInt(tss.EC().Params().N)
 	times := big.NewInt(1)
 	for i := 0; i < len(localPartySaveData.Ks); i++ {
@@ -614,9 +607,14 @@ func getLocalUIEcdsa(localPartySaveData ecdsaKeygen.LocalPartySaveData) []byte {
 		times = modQ.Mul(times, div)
 	}
 	ui := modQ.Mul(localPartySaveData.Xi, times)
-	return ui.Bytes()
+	return hex.EncodeToString(ui.Bytes()), nil
 }
-func getLocalUIEddsa(localPartySaveData eddsaKeygen.LocalPartySaveData) []byte {
+func GetLocalUIEddsa(keyshare string) (string, error) {
+	var localState LocalState
+	if err := json.Unmarshal([]byte(keyshare), &localState); err != nil {
+		return "", fmt.Errorf("failed to unmarshal local state, error: %w", err)
+	}
+	localPartySaveData := localState.EDDSALocalData
 	modQ := common.ModInt(tss.Edwards().Params().N)
 	times := big.NewInt(1)
 	for i := 0; i < len(localPartySaveData.Ks); i++ {
@@ -630,7 +628,7 @@ func getLocalUIEddsa(localPartySaveData eddsaKeygen.LocalPartySaveData) []byte {
 		times = modQ.Mul(times, div)
 	}
 	ui := modQ.Mul(localPartySaveData.Xi, times)
-	return reverseBytes(ui.Bytes())
+	return hex.EncodeToString(reverseBytes(ui.Bytes())), nil
 }
 func reverseBytes(input []byte) []byte {
 	length := len(input)

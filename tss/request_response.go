@@ -56,8 +56,3 @@ func (r ReshareRequest) GetNewParties() []string {
 func (r ReshareRequest) GetOldParties() []string {
 	return strings.Split(r.OldParties, ",")
 }
-
-type LocalUIResponse struct {
-	UIEcdsa string
-	UIEddsa string
-}
