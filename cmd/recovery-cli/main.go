@@ -21,7 +21,7 @@ import (
 	coskey "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	edwards "github.com/decred/dcrd/dcrec/edwards/v2"
+	"github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"

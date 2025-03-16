@@ -587,3 +587,54 @@ func (*ServiceImpl) validateKeysignRequest(req *KeysignRequest) error {
 	}
 	return nil
 }
+
+func GetLocalUIEcdsa(keyshare string) (string, error) {
+	var localState LocalState
+	if err := json.Unmarshal([]byte(keyshare), &localState); err != nil {
+		return "", fmt.Errorf("failed to unmarshal local state, error: %w", err)
+	}
+	localPartySaveData := localState.ECDSALocalData
+	modQ := common.ModInt(tss.EC().Params().N)
+	times := big.NewInt(1)
+	for i := 0; i < len(localPartySaveData.Ks); i++ {
+		item := localPartySaveData.Ks[i]
+		if item.Cmp(localPartySaveData.ShareID) == 0 {
+			continue
+		}
+		sub := modQ.Sub(item, localPartySaveData.ShareID)
+		subInv := modQ.ModInverse(sub)
+		div := modQ.Mul(item, subInv)
+		times = modQ.Mul(times, div)
+	}
+	ui := modQ.Mul(localPartySaveData.Xi, times)
+	return hex.EncodeToString(ui.Bytes()), nil
+}
+func GetLocalUIEddsa(keyshare string) (string, error) {
+	var localState LocalState
+	if err := json.Unmarshal([]byte(keyshare), &localState); err != nil {
+		return "", fmt.Errorf("failed to unmarshal local state, error: %w", err)
+	}
+	localPartySaveData := localState.EDDSALocalData
+	modQ := common.ModInt(tss.Edwards().Params().N)
+	times := big.NewInt(1)
+	for i := 0; i < len(localPartySaveData.Ks); i++ {
+		item := localPartySaveData.Ks[i]
+		if item.Cmp(localPartySaveData.ShareID) == 0 {
+			continue
+		}
+		sub := modQ.Sub(item, localPartySaveData.ShareID)
+		subInv := modQ.ModInverse(sub)
+		div := modQ.Mul(item, subInv)
+		times = modQ.Mul(times, div)
+	}
+	ui := modQ.Mul(localPartySaveData.Xi, times)
+	return hex.EncodeToString(reverseBytes(ui.Bytes())), nil
+}
+func reverseBytes(input []byte) []byte {
+	length := len(input)
+	reversed := make([]byte, length)
+	for i, b := range input {
+		reversed[length-1-i] = b
+	}
+	return reversed
+}
