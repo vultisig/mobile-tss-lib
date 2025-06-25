@@ -628,7 +628,15 @@ func GetLocalUIEddsa(keyshare string) (string, error) {
 		times = modQ.Mul(times, div)
 	}
 	ui := modQ.Mul(localPartySaveData.Xi, times)
-	return hex.EncodeToString(reverseBytes(ui.Bytes())), nil
+	return hex.EncodeToString(reverseBytes(ensure32Bytes(ui))), nil
+}
+func ensure32Bytes(ui *big.Int) []byte {
+	uiBytes := ui.Bytes()
+	if len(uiBytes) < 32 {
+		padding := make([]byte, 32-len(uiBytes))
+		uiBytes = append(padding, uiBytes...)
+	}
+	return uiBytes
 }
 func reverseBytes(input []byte) []byte {
 	length := len(input)
