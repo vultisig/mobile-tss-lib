@@ -322,6 +322,26 @@ func getKeys(threshold int, allSecrets []tempLocalState, keyType TssKeyType) err
 				derivePath: "m/44'/931'/0'/0/0",
 				action:     showMayachainKey,
 			},
+			{
+				name:       "atomchain",
+				derivePath: "m/44'/118'/0'/0/0",
+				action:     showAtomKey,
+			},
+			{
+				name:       "kujirachain",
+				derivePath: "m/44'/118'/0'/0/0",
+				action:     showKujiKey,
+			},
+			{
+				name:       "dydx",
+				derivePath: "m/44'/118'/0'/0/0",
+				action:     showDydxKey,
+			},
+			{
+				name:       "terrachain",
+				derivePath: "m/44'/118'/0'/0/0", //Terra (LUNA) also supports m/44'/330'/0'/0/0 but for re-use - using LUNC
+				action:     showTerraKey,
+			},
 		}
 		for _, coin := range supportedCoins {
 			fmt.Println("Recovering", coin.name, "key....")
@@ -395,7 +415,7 @@ func showBitcoinKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	}
 	fmt.Println("hex encoded non-hardened public key for bitcoin:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
 	fmt.Println("address:", addressPubKey.EncodeAddress())
-	fmt.Println("WIF private key for bitcoin:", wif.String())
+	fmt.Println("WIF private key for bitcoin: p2wpkh:", wif.String())
 	return nil
 }
 
@@ -439,10 +459,35 @@ func showMayachainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 
 	fmt.Println("hex encoded non-hardened private key for MAYAChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
 	fmt.Println("hex encoded non-hardened public key for MAYAChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("maya", addrBytes)
+	fmt.Println("address:", bech32Addr)
+	return nil
+}
+
+func showAtomKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for GAIAChain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for GAIAChain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for GAIAChain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
 	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount("maya", "mayapub")
-	config.SetBech32PrefixForValidator("mayav", "mayavpub")
-	config.SetBech32PrefixForConsensusNode("mayac", "mayacpub")
+	config.SetBech32PrefixForAccount("cosmos", "cosmospub")
+	config.SetBech32PrefixForValidator("cosmosvaloper", "cosmosvaloperpub")
+	config.SetBech32PrefixForConsensusNode("cosmosvalcons", "cosmosvalconspub")
 
 	compressedPubkey := coskey.PubKey{
 		Key: nonHardenedPubKey.SerializeCompressed(),
@@ -451,6 +496,92 @@ func showMayachainKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
 	fmt.Println("address:", addr.String())
 	return nil
 }
+
+func showKujiKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for Kuji Chain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for Kuji Chain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for Kuji Chain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("kujira", addrBytes)
+	
+	fmt.Println("address:", bech32Addr)
+	return nil
+}
+
+func showTerraKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for Terra Chain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for Terra Chain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for Terra Chain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("terra", addrBytes)
+
+	fmt.Println("address:", bech32Addr)
+	return nil
+}
+
+func showDydxKey(extendedPrivateKey *hdkeychain.ExtendedKey) error {
+	fmt.Println("non-hardened extended private key for DYDX Chain:", extendedPrivateKey.String())
+	nonHardenedPubKey, err := extendedPrivateKey.ECPubKey()
+	if err != nil {
+		return err
+	}
+	nonHardenedPrivKey, err := extendedPrivateKey.ECPrivKey()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("hex encoded non-hardened private key for DYDX Chain:", hex.EncodeToString(nonHardenedPrivKey.Serialize()))
+	fmt.Println("hex encoded non-hardened public key for DYDX Chain:", hex.EncodeToString(nonHardenedPubKey.SerializeCompressed()))
+
+
+	compressedPubkey := coskey.PubKey{
+		Key: nonHardenedPubKey.SerializeCompressed(),
+	}
+
+	// Generate the address bytes
+	addrBytes := types.AccAddress(compressedPubkey.Address().Bytes())
+	// Use sdk.Bech32ifyAccPub with the correct prefix
+	bech32Addr := sdk.MustBech32ifyAddressBytes("dydx", addrBytes)
+
+	fmt.Println("address:", bech32Addr)
+	return nil
+}
+
+
 
 func decryptFileAction(ctx *cli.Context) error {
 	for _, item := range ctx.Args().Slice() {
