@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/pbkdf2"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -519,7 +520,34 @@ func decryptVault(vaultContainer *v1.VaultContainer, inputFileName string) (*v1.
 	return &vault, nil
 }
 
+// Newer Vultisig apps (Android, iOS, web, extension) encrypt backups as "VLT\x02" + salt(16) + iv(12) + AES-GCM,
+// with the key from PBKDF2-HMAC-SHA256 (600,000 rounds). Older backups use sha256(password).
+func decryptVaultPbkdf2(password string, vault []byte) ([]byte, error) {
+	const header = 4 + 16 + 12
+	if len(vault) < header+16 {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	salt := vault[4:20]
+	iv := vault[20:32]
+	key, err := pbkdf2.Key(sha256.New, password, salt, 600000, 32)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	return gcm.Open(nil, iv, vault[header:], nil)
+}
+
 func DecryptVault(password string, vault []byte) ([]byte, error) {
+	if len(vault) >= 4 && vault[0] == 'V' && vault[1] == 'L' && vault[2] == 'T' && vault[3] == 0x02 {
+		return decryptVaultPbkdf2(password, vault)
+	}
 	// Hash the password to create a key
 	hash := sha256.Sum256([]byte(password))
 	key := hash[:]
